@@ -1,0 +1,84 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.0.1
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(resources/)
+      - id: end-of-file-fixer
+      - id: check-case-conflict
+      - id: check-docstring-first
+      - id: check-added-large-files
+        args: ["--maxkb=10000"]
+      - id: debug-statements
+        exclude: resources/
+      - id: check-symlinks
+      - id: check-toml
+      - id: check-yaml
+      - id: check-xml
+      - id: mixed-line-ending
+      - id: requirements-txt-fixer
+
+  - repo: https://github.com/psf/black
+    rev: 22.3.0
+    hooks:
+      - id: black
+        args: [--line-length=79]
+        exclude: resources/
+
+  - repo: https://github.com/timothycrosley/isort
+    rev: 5.8.0
+    hooks:
+      - id: isort
+        args: ["--profile=black", "--multi-line=3", "--line-length=79"]
+
+  - repo: https://gitlab.com/pycqa/flake8
+    rev: 3.9.2
+    hooks:
+      - id: flake8
+        additional_dependencies:
+          [flake8-bugbear, flake8-docstrings, flake8-keyword-arguments]
+        args: [--config=pyproject.toml]
+        exclude: |
+          (?x)(
+            ^docs/|
+            ^resources/
+            )
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v0.812
+    hooks:
+      - id: mypy
+        args: ["--disallow-untyped-defs", "--ignore-missing-imports"]
+        name: mypy (server)
+        files: server/src
+      - id: mypy
+        args: ["--disallow-untyped-defs", "--ignore-missing-imports"]
+        name: mypy (client)
+        files: client/src
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v2.3.0
+    hooks:
+      - id: prettier
+        args: [--prose-wrap=always, --print-width=88]
+        exclude: |
+          (?x)(
+            ^Pipfile*|
+            ^resources/
+            )
+
+  - repo: https://github.com/nbQA-dev/nbQA
+    rev: 0.11.1
+    hooks:
+      - id: nbqa-isort
+        args: [--nbqa-mutate]
+
+      - id: nbqa-black
+        args: [--nbqa-mutate]
+        exclude: resources/
+
+      - id: nbqa-flake8
+        additional_dependencies: [flake8-bugbear, flake8-docstrings]
+        args: [--nbqa-mutate]

@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  inquisitors-server:
+    build:
+      context: .
+      target: server
+    container_name: inquisitors_server
+    command: python -u -m inquisitors
+    env_file:
+      - .env
+    network_mode: "host"
+    ports:
+      - ${SERVER_PORT}:${SERVER_PORT}
+    volumes:
+      - ./log:/log
