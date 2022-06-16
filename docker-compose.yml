@@ -6,10 +6,9 @@ services:
       context: .
       target: server
     container_name: inquisitors_server
-    command: python -u -m inquisitors
+    command: python -u -m inquisitors-server
     env_file:
       - .env
-    network_mode: "host"
     ports:
       - ${SERVER_PORT}:${SERVER_PORT}
     volumes:

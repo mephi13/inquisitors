@@ -11,8 +11,4 @@ RUN pip install -e server
 # Make the log directory
 RUN mkdir log
 
-# Copy resources
-# COPY resources/certs/CansCert.pem resources/certs/CansCert.pem
-# COPY resources/certs/CansKey.pem resources/certs/CansKey.pem
-
-CMD ["python", "-u", "-m", "inquisitors"]
+CMD ["python", "-u", "-m", "inquisitors-server"]
