@@ -1,4 +1,4 @@
-from . import app
+from . import app, socketio
 from .views import *
 
-app.run()
+socketio.run(app)
