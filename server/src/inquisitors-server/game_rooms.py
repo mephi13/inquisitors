@@ -3,6 +3,7 @@
 from typing import Dict, List, Optional
 from .player import Player
 from flask_socketio import join_room, leave_room, rooms, emit
+from . import log
 
 class GameRoom:
     """Game room state."""
@@ -30,9 +31,15 @@ class GameRoom:
 
     def on_update(self) -> None:
         """Notify the players about room update."""
-        self.emit("roomupdate", {
-            "users": self.get_users(),
-        })
+        users = self.get_users()
+        if users:
+            self.emit("roomupdate", {
+                "users": self.get_users(),
+            })
+        else:
+            # No users left, unlink ourselves from the global map
+            log.info(f"No more users in room {self.id}. Deleting...")
+            game_rooms.pop(self.id)
 
     def emit(self, event_type: str, payload: Dict[str, str]) -> None:
         """Emit an event to all users in the room."""
@@ -50,16 +57,14 @@ def find_user_room() -> Optional[GameRoom]:
     """Find room by user ID."""
     # Rely on event context to fetch rooms the player is in
     room_ids = rooms()
-    # User is automatically added to a room upon joining, the other room is ours
-    assert len(room_ids) == 2, \
+    # User is automatically added to a room upon connecting, the other room is ours
+    assert len(room_ids) <= 2, \
         f"Unexpected number of rooms: {len(room_ids)}: {room_ids}"
     # It seems that the order is not ensured, check both
-    if room_ids[0] in game_rooms.keys():
-        return game_rooms[room_ids[0]]
-    if room_ids[1] in game_rooms.keys():
-        return game_rooms[room_ids[1]]
-    else:
-        return None
+    for id in room_ids:
+        if id in game_rooms.keys():
+            return game_rooms[id]
+    return None
 
 # Global mapping of room IDs to room states
 game_rooms: Dict[str, GameRoom] = {}

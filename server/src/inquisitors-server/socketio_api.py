@@ -18,13 +18,17 @@ def on_connect() -> None:
 def on_disconnect() -> None:
     """Handle SocketIO disconnect."""
     room = find_user_room()
+    user_id = get_user_id()
     if room:
-        user_id = get_user_id()
         room.leave(user_id)
         log.info(
             f"User {user_id} left the room {room.id} and disconnected"
         )
         room.on_update()
+    else:
+        log.info(
+            f"User {user_id} disconnected"
+        )
 
 @socketio.on('join')
 def on_join(data: Dict[str, str]) -> None:
