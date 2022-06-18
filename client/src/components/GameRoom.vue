@@ -1,40 +1,32 @@
 <template>
   <div class="container">
     <h1> Room: {{ roomId }} </h1>
-    <form v-on:submit.prevent="submitQuestion(question)">
+    <form v-on:submit.prevent="submitQuestion(questionSubmission)">
       <label for="userQuestion">Question:
-        <input type="text" placeholder="Submit your question..." v-model="question"
+        <input type="text" placeholder="Submit your question..." v-model="questionSubmission"
           id="userQuestion" />
       </label>
       <input type="submit" value="Send" />
     </form>
-
-      <hr />
-
-      <button v-on:click="getPlayers">Get players</button>
-
-      <div>
-        <li v-for="player in players" :key="player">
-          {{ player }}
-        </li>
-      </div>
   </div>
 </template>
 
 <script>
 import { io } from 'socket.io-client';
-import axios from 'axios';
 
 export default {
   name: 'GameRoom',
   data() {
     return {
-      question: '',
-      roomId: this.$route.params.roomId,
       socket: null,
+      userName: this.$route.query.userName,
+      questionSubmission: '',
+      chosenQuestion: '',
       players: [],
+      respondersSubset: [],
     };
   },
+  props: ['roomId'],
   methods: {
     /* TODO: Listen for notification about new player in the room */
 
@@ -42,49 +34,62 @@ export default {
       console.log('Implement me!');
     },
 
-    /* TODO: Establish secure channel with each player */
-
-    submitQuestion() {
-      this.socket.emit('submitQuestion', {
+    submitQuestion(question) {
+      this.socket.emit('qsubmit', {
         roomId: this.roomId,
-        question: this.question,
+        question,
       });
     },
-
-    getPlayers() {
-      /* TODO: This method will likely be removed and players' list will
-       * be received asynchronously when the game starts */
-      const path = `http://inquisitors.localdomain:15000/get_players/${this.roomId}`;
-      axios.get(path)
-        .then((res) => {
-          this.players = res.data.players;
-        })
-        .catch((err) => {
-          console.error(err);
-        });
-    },
-
-    /* TODO: Listen for notification about the chosen question and
-     * inclusion in the responders' subset */
 
     submitResponse() {
       /* TODO: Implement anonymous veto network */
       console.log('Implement me!');
     },
 
-    /* TODO: Listen for subset announcement and public voting phase start */
-
     condemnHeretic() {
       console.log('Implement me!');
     },
-
-    /* TODO: Listen for notification about the condemned heretic */
-
-    /* TODO: Rinse and repeat */
   },
+
   created() {
     this.socket = io('ws://inquisitors.localdomain:15000');
-    this.socket.emit('joinRoom', this.roomId);
+    console.log(`My name is ${this.userName}`);
+    this.socket.emit('join', {
+      userName: this.userName,
+      roomId: this.roomId,
+    });
+
+    this.socket.on('start', (data) => {
+      console.assert(data);
+      /* Check if the server for the number of players */
+      /* Establish secure channels with all other players */
+    });
+
+    this.socket.on('secretphase', (data) => {
+      this.chosenQuestion = data.chosenQuestion;
+      if (data.chosen) {
+        /* If in the subset of responders - prompt user for answer */
+      } else {
+        /* Tell the user they have not been chosen for */
+      }
+    });
+
+    this.socket.on('publicphase', (data) => {
+      /* Save the subset of players that responded */
+      this.respondersSubset = data.respondersSubset;
+      /* TODO: Start public voting */
+    });
+
+    this.socket.on('condemned', (data) => {
+      /* TODO: Handle notification about the condemned heretic */
+      console.assert(data);
+      /* TODO: Check if game should continue (enough players) */
+    });
+
+    this.socket.on('gameover', (data) => {
+      /* TODO: Handle game over: show a button redirecting back home */
+      console.assert(data);
+    });
   },
 };
 </script>

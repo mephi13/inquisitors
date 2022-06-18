@@ -15,33 +15,22 @@
 </template>
 
 <script>
-import axios from 'axios';
-
 export default {
   name: 'HomePage',
   data() {
     return {
       roomId: '',
       errorMsg: '',
+      userName: this.$route.query.userName,
     };
   },
   methods: {
     joinRoom(roomId) {
-      /* First check with the server that the room exists */
-      const path = `http://inquisitors.localdomain:15000/check_room/${roomId}`;
-      axios.get(path)
-        .then((response) => {
-          console.assert(response.data.success);
-          this.errorMsg = '';
-          /* Room exists, navigate to it */
-          this.$router.push({
-            name: 'GameRoom',
-            params: { roomId },
-          });
-        })
-        .catch(() => {
-          this.errorMsg = `No room found with ID: ${roomId}`;
-        });
+      this.$router.push({
+        name: 'GameRoom',
+        params: { roomId },
+        query: { userName: this.userName },
+      });
     },
   },
 };

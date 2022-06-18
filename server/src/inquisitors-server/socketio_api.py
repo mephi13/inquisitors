@@ -1,58 +1,59 @@
 """SocketIO API definition."""
 
 from typing import Dict
+
 from . import socketio, log
-from .rooms import rooms
-from .player import Player
+from .player import get_user_id
+from .game_rooms import game_rooms
+from flask_socketio import emit, disconnect
 
 @socketio.on('connect')
-def client_connected_callback() -> None:
-    print("Client connected")
+def on_connect() -> None:
+    """Handle new SocketIO connection."""
+    log.info(
+        f"User {get_user_id()} connected"
+    )
 
 @socketio.on('disconnect')
-def client_disconnected_callback() -> None:
+def on_disconnect() -> None:
     # TODO: Find the client in the room based on session ID and remove them
-    print("Client disconnected")
+    log.info(
+        f"User {get_user_id()} disconnected"
+    )
 
-@socketio.on('joinRoom')
-def join_room(room_id: str) -> None:
+@socketio.on('join')
+def on_join(data: Dict[str, str]) -> None:
     """Add a player to their room."""
-    if room_id in rooms.keys():
-        # TODO: How to recover session ID in this callback?
-        sid = 0
-        # Add the user to the room
-        rooms[room_id].players[sid] = Player(sid=sid)
-        # TODO: Distinguish between rooms that already have a game in progress
-        # and those still in setup phase
-        log.info(f"User {sid} joined room {room_id}")
-    else:
-        # Terminate connection?
-        pass
+    try:
+        user_id = get_user_id()
+        user_name = data["userName"]
+        room_id = data["roomId"]
+        game_rooms[room_id].join(user_id, user_name)
+        log.info(
+            f"User {user_id} ({user_name}) joined room {room_id}"
+        )
+    except KeyError:
+        disconnect()
 
-@socketio.on('startGame')
-def start_game(room_id: str) -> None:
+@socketio.on('start')
+def on_start(data: Dict[str, str]) -> None:
     """Start a game."""
-    if room_id in rooms.keys():
-        # TODO: How to recover session ID in this callback?
-        sid = 0
-        # TODO: Assert the sender is actually in the room
-        # (and possibly not alone/minimum number of players met?)
-        # TODO: Mark the room as having a game ongoing
-    else: # Possibly better to fail with KeyError
-        # Terminate connection?
-        pass
+    try:
+        room_id = data[""]
+        # TODO: Assert enough players to play the game and
+        # requesting user actually in the room
+        game_rooms[room_id].start_game()
+    except KeyError:
+        disconnect()
 
-@socketio.on('submitQuestion')
-def submit_question(data: Dict[str, str]) -> None:
+
+@socketio.on('qsubmit')
+def on_qsubmit(data: Dict[str, str]) -> None:
     """Submit a player's question."""
     try:
+        user_id = get_user_id()
         room_id = data["roomId"]
         question = data["question"]
-        # TODO: How to recover session ID in this callback?
-        sid = 0
-        # Funnily enough, except KeyError will also take care of
-        # invalid room ID or player not in the room
-        rooms[room_id].players[sid].question = question
+        game_rooms[room_id].players[user_id].question = question
     except KeyError:
-        # Terminate connection?
-        pass
+        disconnect()

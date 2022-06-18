@@ -18,6 +18,7 @@ const routes = [
     path: '/room/:roomId',
     name: 'GameRoom',
     component: GameRoom,
+    props: true,
   },
 ];
 
