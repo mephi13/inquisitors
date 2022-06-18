@@ -4,8 +4,8 @@ from typing import Dict
 
 from . import socketio, log
 from .player import get_user_id
-from .game_rooms import game_rooms
-from flask_socketio import emit, disconnect
+from .game_rooms import find_user_room, game_rooms
+from flask_socketio import disconnect
 
 @socketio.on('connect')
 def on_connect() -> None:
@@ -16,10 +16,15 @@ def on_connect() -> None:
 
 @socketio.on('disconnect')
 def on_disconnect() -> None:
-    # TODO: Find the client in the room based on session ID and remove them
-    log.info(
-        f"User {get_user_id()} disconnected"
-    )
+    """Handle SocketIO disconnect."""
+    room = find_user_room()
+    if room:
+        user_id = get_user_id()
+        room.leave(user_id)
+        log.info(
+            f"User {user_id} left the room {room.id} and disconnected"
+        )
+        room.on_update()
 
 @socketio.on('join')
 def on_join(data: Dict[str, str]) -> None:
@@ -28,7 +33,13 @@ def on_join(data: Dict[str, str]) -> None:
         user_id = get_user_id()
         user_name = data["userName"]
         room_id = data["roomId"]
-        game_rooms[room_id].join(user_id, user_name)
+        room = game_rooms[room_id]
+        # Add the user to the room
+        room.join(user_id, user_name)
+
+        # Notify all players in the room about the newcomer
+        room.on_update()
+
         log.info(
             f"User {user_id} ({user_name}) joined room {room_id}"
         )

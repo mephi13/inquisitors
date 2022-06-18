@@ -1,8 +1,8 @@
 """Define a game room."""
 
-from typing import Dict
+from typing import Dict, List, Optional
 from .player import Player
-from flask_socketio import join_room, leave_room, rooms
+from flask_socketio import join_room, leave_room, rooms, emit
 
 class GameRoom:
     """Game room state."""
@@ -28,17 +28,38 @@ class GameRoom:
         # Rely on event context to leave the room
         leave_room(self.id)
 
+    def on_update(self) -> None:
+        """Notify the players about room update."""
+        self.emit("roomupdate", {
+            "users": self.get_users(),
+        })
+
+    def emit(self, event_type: str, payload: Dict[str, str]) -> None:
+        """Emit an event to all users in the room."""
+        emit(event_type, payload, to=self.id)
+
+    def get_users(self) -> List[Dict[str, str]]:
+        """Fetch users in the room in a transport-ready format."""
+        return [ { "name": player.name } for player in self.players.values() ]
+
     def start_game(self) -> None:
         """Start a game."""
         # TODO: Implement me!
 
-def find_user_room(user_id: str) -> str:
+def find_user_room() -> Optional[GameRoom]:
     """Find room by user ID."""
-    assert user_id
     # Rely on event context to fetch rooms the player is in
-    user_rooms = rooms()
-    assert len(user_rooms) == 1, "Player can only be in one room at a time"
-    return user_rooms[0]
+    room_ids = rooms()
+    # User is automatically added to a room upon joining, the other room is ours
+    assert len(room_ids) == 2, \
+        f"Unexpected number of rooms: {len(room_ids)}: {room_ids}"
+    # It seems that the order is not ensured, check both
+    if room_ids[0] in game_rooms.keys():
+        return game_rooms[room_ids[0]]
+    if room_ids[1] in game_rooms.keys():
+        return game_rooms[room_ids[1]]
+    else:
+        return None
 
 # Global mapping of room IDs to room states
 game_rooms: Dict[str, GameRoom] = {}

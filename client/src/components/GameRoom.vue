@@ -9,6 +9,13 @@
       <input type="submit" value="Send" />
     </form>
   </div>
+  <hr />
+  <p> Players: </p>
+  <div v-for="player in players" :key="player" class="container">
+    <div class="container">
+      {{ player }}
+    </div>
+  </div>
 </template>
 
 <script>
@@ -57,6 +64,11 @@ export default {
     this.socket.emit('join', {
       userName: this.userName,
       roomId: this.roomId,
+    });
+
+    this.socket.on('roomupdate', (data) => {
+      /* Update the players' list */
+      this.players = data.users.map((user) => user.name);
     });
 
     this.socket.on('start', (data) => {

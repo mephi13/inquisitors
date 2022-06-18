@@ -16,6 +16,11 @@ import randomNames from '@/assets/randomNames.json';
 
 export default {
   name: 'HomePage',
+  data() {
+    return {
+      userName: '',
+    };
+  },
   methods: {
     createRoom() {
       /* Request a unique room ID from the server */

@@ -8,8 +8,8 @@ class Player:
     def __init__(self, id: str, name: str) -> None:
         """Instantiate a player."""
         self.id = id
+        self.name = name
         self.question = ""
-        self.name = ""
         ...
 
 def get_user_id() -> str:
