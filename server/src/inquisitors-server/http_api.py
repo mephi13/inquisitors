@@ -14,5 +14,5 @@ def get_room() -> Response:
     # Send the ID back to the client
     return jsonify({
         # Speak JavaScript and use camelCase
-        "roomId" : room_id
+        "roomId" : room_id,
     })

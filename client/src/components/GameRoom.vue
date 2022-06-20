@@ -1,21 +1,72 @@
 <template>
   <div class="container">
     <h1> Room: {{ roomId }} </h1>
-    <form v-on:submit.prevent="submitQuestion(questionSubmission)">
-      <label for="userQuestion">Question:
-        <input type="text" placeholder="Submit your question..." v-model="questionSubmission"
-          id="userQuestion" />
-      </label>
-      <input type="submit" value="Send" />
-    </form>
+
+    <div v-if="currentState === 'initialState'">
+      <!-- TODO: Start game button if host, otherwise "Waiting for the host to start the game -->
+      <button @click="startGame()" class="btn btn-primary btn-lg">Start</button>
+    </div>
+
+    <div v-else-if="currentState === 'waitingForQuestion'">
+      <form v-on:submit.prevent="submitQuestion(questionSubmission)">
+        <label for="userQuestion">Question:
+          <input type="text" placeholder="Submit your question..." v-model="questionSubmission"
+            id="userQuestion" />
+        </label>
+        <input type="submit" value="Send" />
+      </form>
+    </div>
+
+    <div v-else-if="currentState === 'questionSubmitted'">
+      <p>Question submitted!</p>
+    </div>
+
+    <div v-else-if="currentState === 'waitingForResponse'">
+      <p>{{ this.chosenQuestion }}</p>
+      <button @click="submitResponse(true)" class="btn btn-primary btn-lg">YES</button>
+      <button @click="submitResponse(false)" class="btn btn-secondary btn-lg">NO</button>
+    </div>
+
+    <div v-else-if="currentState === 'anonymousVetoNetwork'">
+      <!-- TODO: Run veto network in the background, show sime progress bar? -->
+      <p>Answer submitted. Waiting for other players...</p>
+    </div>
+
+    <div v-else-if="currentState === 'waitingForPublicVote'">
+      <!-- TODO: Prompt for vote -->
+      <div v-if="sharedResult == true">
+        <h2>Someone answered yes! Name the heretic!</h2>
+      </div>
+      <div v-else>
+        <h2>No one came forward. Someone must be lying. Name them and let them burn!</h2>
+      </div>
+
+      <div v-for="player in players" :key="player">
+        <div v-if="player !== userName" class="container">
+          <button @click="submitVote(player)" class="btn btn-primary btn-lg">{{ player }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-else-if="currentState === 'waitingForNextRound'">
+      <button @click="nextRound" class="">Next Round</button>
+    </div>
+
+    <div v-else>
+      <!-- This should never happen -->
+    </div>
+
   </div>
+
   <hr />
+
   <p> Players: </p>
   <div v-for="player in players" :key="player" class="container">
     <div class="container">
       {{ player }}
     </div>
   </div>
+
 </template>
 
 <script>
@@ -32,17 +83,33 @@ export default {
       chosenQuestion: '',
       responsePrompt: '',
       respondersSubset: [],
+      sharedResult: undefined,
+      publicVotesAgainst: {},
+      currentState: 'initialState',
     };
   },
   props: ['roomId'],
   methods: {
-    /* TODO: Listen for notification about new player in the room */
+    stateTransition(nextState) {
+      console.log(`Transitioning to state ${nextState}`);
+      this.currentState = nextState;
+    },
+
+    resetState() {
+      /* Reset back to initial state */
+      this.currentState = 'initialState';
+      /* TODO: Use scoping rules to reset these - associate object with each state */
+      this.publicVotesAgainst = {};
+      this.respondersSubset = [];
+      this.questionSubmission = '';
+      this.chosenQuestion = '';
+      this.responsePrompt = '';
+      this.sharedResult = undefined;
+    },
 
     startGame() {
-      console.log('Implement me!');
-
       this.socket.emit('game_start', {
-        roomid: this.roomId,
+        roomId: this.roomId,
       });
     },
 
@@ -51,11 +118,14 @@ export default {
         roomId: this.roomId,
         question,
       });
+      /* Do a state transition */
+      this.stateTransition('questionSubmitted');
     },
 
     submitResponse(response) {
+      /* Do a state transition */
+      this.stateTransition('anonymousVetoNetwork');
       /* TODO: Implement anonymous veto network */
-      console.log('Implement me!');
       console.assert(response);
       /* TODO: Run AVN then notify the server */
       this.socket.emit('avnet_complete', {
@@ -64,10 +134,17 @@ export default {
     },
 
     submitVote(vote) {
-      console.log('Implement me!');
       this.socket.emit('public_vote_submit', {
         roomId: this.roomId,
         vote,
+      });
+      /* Do a state transition */
+      this.stateTransition('publicVoteSubmitted');
+    },
+
+    nextRound() {
+      this.socket.emit('next_round_ready', {
+        roomId: this.roomId,
       });
     },
   },
@@ -84,6 +161,11 @@ export default {
       this.players = data.users.map((user) => user.name);
     });
 
+    this.socket.on('question_prompt', () => {
+      /* Do a state transition */
+      this.stateTransition('waitingForQuestion');
+    });
+
     this.socket.on('response_prompt', (data) => {
       this.chosenQuestion = data.question;
       if (data.promptUser) {
@@ -93,19 +175,37 @@ export default {
         /* TODO: Wait for user input, then run anonymous veto network with answer set to 0 */
         this.responsePrompt = 'Enter an answer so that no one knows you are part of the grand inquisition';
       }
+      /* Do a state transition */
+      this.stateTransition('waitingForResponse');
     });
 
     this.socket.on('public_vote_prompt', (data) => {
       /* Save a list of players whose votes actually counted */
       this.respondersSubset = data.respondersSubset;
-      /* TODO: Prompt the user to name a heretic */
+      /* Do a state transition */
+      this.stateTransition('waitingForPublicVote');
     });
 
     this.socket.on('public_vote_reveal', (data) => {
-      /* TODO: Handle notification about the condemned heretic */
-      console.assert(data.results);
-      console.assert(data.heretic);
-      /* TODO: Check if game should continue (enough players) */
+      /* Find prosecutors of each player */
+      for (let i = 0; i < this.players.length; i += 1) {
+        const prosecutors = data.votes
+          .filter((player) => player.votedFor === this.players[i])
+          .map((player) => player.name);
+        this.publicVotesAgainst[this.players[i]] = prosecutors;
+      }
+
+      if (data.heretic === this.userName) {
+        this.stateTransition('burnedAtTheStake');
+        this.$router.push({
+          name: 'BurnAtTheStake',
+          query: { prosecutors: this.publicVotesAgainst[this.userName] },
+        });
+      } else {
+        /* TODO: Check if game should continue (enough players) */
+        /* Do a state transition */
+        this.stateTransition('waitingForNextRound');
+      }
     });
   },
 };
