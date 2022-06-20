@@ -27,9 +27,10 @@ export default {
     return {
       socket: null,
       userName: this.$route.query.userName,
+      players: [],
       questionSubmission: '',
       chosenQuestion: '',
-      players: [],
+      responsePrompt: '',
       respondersSubset: [],
     };
   },
@@ -39,68 +40,72 @@ export default {
 
     startGame() {
       console.log('Implement me!');
+
+      this.socket.emit('game_start', {
+        roomid: this.roomId,
+      });
     },
 
     submitQuestion(question) {
-      this.socket.emit('qsubmit', {
+      this.socket.emit('question_submit', {
         roomId: this.roomId,
         question,
       });
     },
 
-    submitResponse() {
+    submitResponse(response) {
       /* TODO: Implement anonymous veto network */
       console.log('Implement me!');
+      console.assert(response);
+      /* TODO: Run AVN then notify the server */
+      this.socket.emit('avnet_complete', {
+        roomId: this.roomId,
+      });
     },
 
-    condemnHeretic() {
+    submitVote(vote) {
       console.log('Implement me!');
+      this.socket.emit('public_vote_submit', {
+        roomId: this.roomId,
+        vote,
+      });
     },
   },
 
   created() {
     this.socket = io('ws://inquisitors.localdomain:15000');
-    console.log(`My name is ${this.userName}`);
-    this.socket.emit('join', {
+    this.socket.emit('room_join', {
       userName: this.userName,
       roomId: this.roomId,
     });
 
-    this.socket.on('roomupdate', (data) => {
+    this.socket.on('room_update', (data) => {
       /* Update the players' list */
       this.players = data.users.map((user) => user.name);
     });
 
-    this.socket.on('start', (data) => {
-      console.assert(data);
-      /* Check if the server for the number of players */
-      /* Establish secure channels with all other players */
-    });
-
-    this.socket.on('secretphase', (data) => {
-      this.chosenQuestion = data.chosenQuestion;
-      if (data.chosen) {
-        /* If in the subset of responders - prompt user for answer */
+    this.socket.on('response_prompt', (data) => {
+      this.chosenQuestion = data.question;
+      if (data.promptUser) {
+        /* TODO: Wait for user input, then run anonymous veto network */
+        this.responsePrompt = 'Answer the inquisitor\'s question or burn';
       } else {
-        /* Tell the user they have not been chosen for */
+        /* TODO: Wait for user input, then run anonymous veto network with answer set to 0 */
+        this.responsePrompt = 'Enter an answer so that no one knows you are part of the grand inquisition';
       }
     });
 
-    this.socket.on('publicphase', (data) => {
-      /* Save the subset of players that responded */
+    this.socket.on('public_vote_prompt', (data) => {
+      /* Save a list of players whose votes actually counted */
       this.respondersSubset = data.respondersSubset;
-      /* TODO: Start public voting */
+      /* TODO: Prompt the user to name a heretic */
     });
 
-    this.socket.on('condemned', (data) => {
+    this.socket.on('public_vote_reveal', (data) => {
       /* TODO: Handle notification about the condemned heretic */
-      console.assert(data);
+      console.assert(data.results);
+      console.assert(data.heretic);
       /* TODO: Check if game should continue (enough players) */
-    });
-
-    this.socket.on('gameover', (data) => {
-      /* TODO: Handle game over: show a button redirecting back home */
-      console.assert(data);
     });
   },
 };

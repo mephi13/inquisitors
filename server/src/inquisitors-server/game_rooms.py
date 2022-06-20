@@ -1,5 +1,6 @@
 """Define a game room."""
 
+from random import sample, randint, choice
 from typing import Dict, List, Optional
 from .player import Player
 from flask_socketio import join_room, leave_room, rooms, emit
@@ -13,6 +14,7 @@ class GameRoom:
         self.id = id
         # Map session IDs to Player instances
         self.players: Dict[str, Player] = {}
+        self.responders_subset: Dict[str, Player] = {}
 
     def join(self, user_id: str, user_name: str) -> None:
         """Join the room."""
@@ -29,29 +31,112 @@ class GameRoom:
         # Rely on event context to leave the room
         leave_room(self.id)
 
+    def get_user_id_by_name(self, name: str) -> str:
+        """Find ID of the user based on name."""
+        for player in self.players.values():
+            if player.name == name:
+                return player.id
+        return ""
+
     def on_update(self) -> None:
         """Notify the players about room update."""
-        users = self.get_users()
+        users = self._get_users_names()
         if users:
-            self.emit("roomupdate", {
-                "users": self.get_users(),
+            self.emit("room_update", {
+                "users": self._get_users_names(),
             })
         else:
             # No users left, unlink ourselves from the global map
             log.info(f"No more users in room {self.id}. Deleting...")
             game_rooms.pop(self.id)
 
+    def on_question_submit(self) -> None:
+        """Handle question submission."""
+        if all([ player.question for player in self.players ]):
+            # All players submitted their questions, do state transition
+            self.responders_subset = self._get_responders_subset()
+            question = self._select_question()
+            for player in self.players:
+                if player in self.responders_subset:
+                    # TODO: Send response_prompt event to the player in question (find socket based on sid?)
+                    assert "response_prompt"
+                    assert { "question": question, "promptUser": True }
+                else:
+                    assert "response_prompt"
+                    assert { "question": question, "promptUser": False }
+
+    def on_avnet_complete(self) -> None:
+        """Handle completion of anonymous veto network round."""
+        if all([ player.avnet_done for player in self.players ]):
+            self.emit("public_vote_prompt", {
+                "respondersSubset": [ player.name for player in self.respondersSubset ],
+            })
+
+    def on_public_vote_submit(self) -> None:
+        """Handle public vote submission."""
+        if all([ player.voted_for for player in self.players ]):
+            heretic = self._get_heretic()
+            self.emit("public_vote_reveal", {
+                "results": self._get_users_with_votes(),
+                "heretic": heretic.name if heretic else "",
+            })
+
+            # Remove heretic if any
+            if heretic:
+                self.players.pop(heretic)
+
+            # Reset the votes and submissions
+            self._reset_round()
+
     def emit(self, event_type: str, payload: Dict[str, str]) -> None:
         """Emit an event to all users in the room."""
         emit(event_type, payload, to=self.id)
 
-    def get_users(self) -> List[Dict[str, str]]:
+    def on_game_start(self) -> None:
+        """Start a game."""
+        # Prompt all players for questions
+        self.emit("question_prompt")
+
+    def _select_question(self) -> str:
+        """Select a random question."""
+        return choice([ player.question for player in self.players ])
+
+    def _get_responders_subset(self) -> List[str]:
+        """Select a random subset of responders and return their IDs."""
+        count = randint(2, len(self.players))
+        return [ player.sid for player in sample(self.players, count) ]
+
+    def _get_users_names(self) -> List[Dict[str, str]]:
         """Fetch users in the room in a transport-ready format."""
         return [ { "name": player.name } for player in self.players.values() ]
 
-    def start_game(self) -> None:
-        """Start a game."""
-        # TODO: Implement me!
+    def _get_users_with_votes(self) -> List[Dict[str, str]]:
+        """Fetch users in the room along with the number of votes."""
+        return [ { "name": player.name, "votes": player.votes_against } \
+            for player in self.players.values() ]
+
+    def _get_heretic(self) -> Optional[Player]:
+        """Get name of the player with the most votes or None if tie."""
+        heretic = self.players[0]
+        # Find the player with the most votes
+        for player in self.players.values():
+            if player.votes_against > heretic.votes_against:
+                heretic = player
+
+        # Check if tie
+        for player in self.players.values():
+            if player.votes_against == heretic.votes_against and player != heretic:
+                # Return tie
+                return None
+
+        return heretic
+
+    def _reset_round(self) -> None:
+        """Reset round data of each player."""
+        for player in self.players.values():
+            player.votes_against = 0
+            player.voted_for = ""
+            player.question = ""
 
 def find_user_room() -> Optional[GameRoom]:
     """Find room by user ID."""
