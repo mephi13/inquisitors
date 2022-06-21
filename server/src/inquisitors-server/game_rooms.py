@@ -57,20 +57,17 @@ class GameRoom:
             self.responders_subset = self._get_responders_subset()
             question = self._select_question()
 
-            # TODO: Remove me later once sending based on sid is implemented
-            self.emit("response_prompt", {
-                "question": question,
-                "promptUser": True
-            })
-
             for player in self.players.values():
                 if player in self.responders_subset.values():
-                    # TODO: Send response_prompt event to the player in question (find socket based on sid?)
-                    assert "response_prompt"
-                    assert { "question": question, "promptUser": True }
+                    emit("response_prompt", {
+                        "question": question,
+                        "promptUser": True,
+                    }, to=player.id)
                 else:
-                    assert "response_prompt"
-                    assert { "question": question, "promptUser": False }
+                    emit("response_prompt", {
+                        "question": question,
+                        "promptUser": False,
+                    }, to=player.id)
 
     def on_avnet_complete(self) -> None:
         """Handle completion of anonymous veto network round."""

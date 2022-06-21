@@ -23,6 +23,7 @@
 
     <div v-else-if="currentState === 'waitingForResponse'">
       <p>{{ this.chosenQuestion }}</p>
+      <p>{{ this.responsePrompt }}</p>
       <button @click="submitResponse(true)" class="btn btn-primary btn-lg">YES</button>
       <button @click="submitResponse(false)" class="btn btn-secondary btn-lg">NO</button>
     </div>
