@@ -216,7 +216,6 @@ ypBuHmt5NNnFodvQujFmLgxvl6M04JI8WbKlQwzTKr4ASRmr5sb6csnXhnh9Q4YC
 KUlD6tnIneakwPv4SkxxIhodXvpk5HGeXmYvBsN32FlyDNY=
 -----END CERTIFICATE-----
     `;
-    console.log(this.myClientCertificate);
     const vm = this;
 
     // create TLS client
@@ -234,10 +233,9 @@ KUlD6tnIneakwPv4SkxxIhodXvpk5HGeXmYvBsN32FlyDNY=
         let newVerified = null;
         if (depth === 0) {
           if (cn !== 'Alice') {
-            console.log('cn is: ', cn);
             newVerified = {
               alert: forge.tls.Alert.Description.bad_certificate,
-              message: 'Certificate common name does not match hostname.',
+              message: '[TLS] Certificate common name does not match hostname.',
             };
             return newVerified;
           }
@@ -245,7 +243,7 @@ KUlD6tnIneakwPv4SkxxIhodXvpk5HGeXmYvBsN32FlyDNY=
         return verified;
       },
       connected: function connect(connection) {
-        console.log('connected');
+        console.log('[TLS] connected');
         // send message to server
         connection.prepare(forge.util.encodeUtf8('Hi server!'));
       },
@@ -257,31 +255,31 @@ KUlD6tnIneakwPv4SkxxIhodXvpk5HGeXmYvBsN32FlyDNY=
       /* the private key for the client-side cert if provided */
       getPrivateKey: function getKey(connection, cert) {
         console.assert(connection, cert);
-        console.log('Private key');
+        console.log('[TLS] private key');
         return (vm.myClientPrivKey);
       },
       tlsDataReady: function tlsDataReady(connection) {
         // TLS data (encrypted) is ready to be sent to the server
         // if you were communicating with the server below above you'd do:
         const bytes = connection.tlsData.getBytes();
-        console.log('Sending data to TLS server: ', bytes);
+        console.log('[TLS] sending data to TLS server: ', bytes);
         vm.server.process(bytes);
         // In real app were going to send it to routing server
       },
       dataReady: function dataReady(connection) {
         // clear data from the server is ready
         const message = forge.util.decodeUtf8(connection.data.getBytes());
-        console.log('the server sent: ', message);
+        console.log('[TLS] the server sent: ', message);
         vm.processDataFromTlsServer(message);
         // close connection
         // connection.close();
       },
       closed: function closed() {
-        console.log('disconnected');
+        console.log('[TLS] disconnected');
       },
       error: function errorTLS(connection, error) {
         console.assert(connection);
-        console.log('uh oh', error);
+        console.log('[TLS] error: ', error);
       },
     });
 
@@ -337,8 +335,6 @@ ERJ6/bbnRz9ds/5ZqV0I1sMh/160S5NBCJyX5C+50VZzcmoIXoIQO1H9wtsrLKme
 7i61aTHCY5Rn1lSKLpEAXO2vJRpWaz5NBFt1JzCpVv27hnFXVw==
 -----END CERTIFICATE-----
     `;
-    // forge.pki.certificateToPem(this.myServerCertificate);
-    console.log(this.myServerCertificate);
 
     // create TLS server
     this.server = forge.tls.createConnection({
@@ -355,19 +351,13 @@ ERJ6/bbnRz9ds/5ZqV0I1sMh/160S5NBCJyX5C+50VZzcmoIXoIQO1H9wtsrLKme
         const cn = certs[0].subject.getField('CN').value;
         let newVerified = '';
         if (depth === 0) {
-          // cn is Common Name, we can also verify signature and stuff here
+          // cn is Common Name, we don't have to verify it
           if (cn !== 'Bob') {
-            console.log('cn is: ', cn);
             newVerified = {
               alert: forge.tls.Alert.Description.bad_certificate,
-              message: 'Certificate common name does not match expected client.',
+              message: '[TLS] Certificate common name does not match expected client.',
             };
             return newVerified;
-          }
-          if (cn !== 'Bob') {
-            console.log(certs[0].subject);
-            const signature = certs[0].subject.getField('signature').value;
-            console.log(signature);
           }
         }
         return verified;
@@ -390,25 +380,25 @@ ERJ6/bbnRz9ds/5ZqV0I1sMh/160S5NBCJyX5C+50VZzcmoIXoIQO1H9wtsrLKme
         // TLS data (encrypted) is ready to be sent to the client
         // if you were communicating with the client above you'd do:
         const bytes = connection.tlsData.getBytes();
-        console.log('Processing data from TLS server: ', bytes);
+        console.log('[TLS] processing data from TLS server: ', bytes);
         vm.client.process(bytes);
         // In real app were going to send it to routing server here
       },
       dataReady: function dataReady(connection) {
         // clear data from the client is ready
         const message = (forge.util.decodeUtf8(connection.data.getBytes()));
-        console.log('the client sent: ', message);
+        console.log('[TLS] the client sent: ', message);
         // Respond with mirrored echo:
         this.prepare(forge.util.encodeUtf8(message + message));
         // close connection
         // connection.close();
       },
       closed: function closed() {
-        console.log('disconnected');
+        console.log('[TLS] disconnected');
       },
       error: function tlsError(connection, error) {
         console.log(connection);
-        console.log('uh oh', error);
+        console.log('[TLS] error: ', error);
       },
     });
   },
