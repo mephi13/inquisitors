@@ -1,7 +1,7 @@
 """Define a game room."""
 
 from random import sample, randint, choice
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from .player import Player
 from flask_socketio import join_room, leave_room, rooms, emit
 from . import log
@@ -52,41 +52,50 @@ class GameRoom:
 
     def on_question_submit(self) -> None:
         """Handle question submission."""
-        if all([ player.question for player in self.players ]):
+        if all([ player.question for player in self.players.values() ]):
             # All players submitted their questions, do state transition
             self.responders_subset = self._get_responders_subset()
             question = self._select_question()
-            for player in self.players:
-                if player in self.responders_subset:
-                    # TODO: Send response_prompt event to the player in question (find socket based on sid?)
-                    assert "response_prompt"
-                    assert { "question": question, "promptUser": True }
+
+            for player in self.players.values():
+                if player in self.responders_subset.values():
+                    emit("response_prompt", {
+                        "question": question,
+                        "promptUser": True,
+                    }, to=player.id)
                 else:
-                    assert "response_prompt"
-                    assert { "question": question, "promptUser": False }
+                    emit("response_prompt", {
+                        "question": question,
+                        "promptUser": False,
+                    }, to=player.id)
 
     def on_avnet_complete(self) -> None:
         """Handle completion of anonymous veto network round."""
-        if all([ player.avnet_done for player in self.players ]):
+        if all([ player.avnet_done for player in self.players.values() ]):
             self.emit("public_vote_prompt", {
-                "respondersSubset": [ player.name for player in self.respondersSubset ],
+                "respondersSubset": [ player.name for player in self.responders_subset.values() ],
             })
 
     def on_public_vote_submit(self) -> None:
         """Handle public vote submission."""
-        if all([ player.voted_for for player in self.players ]):
+        if all([ player.voted_for for player in self.players.values() ]):
             heretic = self._get_heretic()
             self.emit("public_vote_reveal", {
-                "results": self._get_users_with_votes(),
+                "votes": self._get_users_with_votes_cast(),
                 "heretic": heretic.name if heretic else "",
             })
 
             # Remove heretic if any
             if heretic:
-                self.players.pop(heretic)
+                self.players.pop(heretic.id)
 
+    def on_next_round_ready(self) -> None:
+        """Handle next round ready notification."""
+        if all([ player.ready_for_next_round for player in self.players.values() ]):
             # Reset the votes and submissions
             self._reset_round()
+            # Start the game anew
+            self.on_game_start()
 
     def emit(self, event_type: str, payload: Dict[str, str]) -> None:
         """Emit an event to all users in the room."""
@@ -95,29 +104,30 @@ class GameRoom:
     def on_game_start(self) -> None:
         """Start a game."""
         # Prompt all players for questions
-        self.emit("question_prompt")
+        self.emit("question_prompt", {})
 
     def _select_question(self) -> str:
         """Select a random question."""
-        return choice([ player.question for player in self.players ])
+        return choice([ player.question for player in self.players.values() ])
 
-    def _get_responders_subset(self) -> List[str]:
+    def _get_responders_subset(self) -> Dict[str, Player]:
         """Select a random subset of responders and return their IDs."""
         count = randint(2, len(self.players))
-        return [ player.sid for player in sample(self.players, count) ]
+        keys_subset = sample(list(self.players.keys()), count)
+        return { id: self.players[id] for id in keys_subset }
 
     def _get_users_names(self) -> List[Dict[str, str]]:
         """Fetch users in the room in a transport-ready format."""
         return [ { "name": player.name } for player in self.players.values() ]
 
-    def _get_users_with_votes(self) -> List[Dict[str, str]]:
-        """Fetch users in the room along with the number of votes."""
-        return [ { "name": player.name, "votes": player.votes_against } \
+    def _get_users_with_votes_cast(self) -> List[Dict[str, str]]:
+        """Fetch users along with the votes they cast."""
+        return [ { "name": player.name, "votedFor": player.voted_for } \
             for player in self.players.values() ]
 
     def _get_heretic(self) -> Optional[Player]:
         """Get name of the player with the most votes or None if tie."""
-        heretic = self.players[0]
+        heretic = self.players[list(self.players.keys())[0]]
         # Find the player with the most votes
         for player in self.players.values():
             if player.votes_against > heretic.votes_against:
@@ -134,9 +144,7 @@ class GameRoom:
     def _reset_round(self) -> None:
         """Reset round data of each player."""
         for player in self.players.values():
-            player.votes_against = 0
-            player.voted_for = ""
-            player.question = ""
+            player.reset()
 
 def find_user_room() -> Optional[GameRoom]:
     """Find room by user ID."""

@@ -16,6 +16,15 @@ class Player:
         self.voted_for: str = ""
         # Flag set when the secret voting phase is over
         self.avnet_done = False
+        self.ready_for_next_round = False
+
+    def reset(self) -> None:
+        """Reset the player's state."""
+        self.votes_against = 0
+        self.voted_for = ""
+        self.question = ""
+        self.avnet_done = False
+        self.ready_for_next_round = False
 
 def get_user_id() -> str:
     """Get unique user ID."""

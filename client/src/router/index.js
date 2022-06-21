@@ -2,11 +2,12 @@ import { createRouter, createWebHistory } from 'vue-router';
 import HomePage from '@/components/HomePage.vue';
 import JoinPrompt from '@/components/JoinPrompt.vue';
 import GameRoom from '@/components/GameRoom.vue';
+import BurnAtTheStake from '@/components/BurnAtTheStake.vue';
 
 const routes = [
   {
     path: '/',
-    name: 'Home',
+    name: 'HomePage',
     component: HomePage,
   },
   {
@@ -19,6 +20,11 @@ const routes = [
     name: 'GameRoom',
     component: GameRoom,
     props: true,
+  },
+  {
+    path: '/burn',
+    name: 'BurnAtTheStake',
+    component: BurnAtTheStake,
   },
 ];
 
