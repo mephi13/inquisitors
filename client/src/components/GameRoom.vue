@@ -44,6 +44,7 @@ export default {
       chosenQuestion: '',
       responsePrompt: '',
       respondersSubset: [],
+      testMessage: '',
       messageFromTlsServer: '',
     };
   },
@@ -104,30 +105,6 @@ export default {
   },
 
   created() {
-    const caAuthority = `
------BEGIN CERTIFICATE-----
-MIIDazCCAlOgAwIBAgIUUkcvsMdSt+L4RdgOUq7L0/SZhjEwDQYJKoZIhvcNAQEL
-BQAwRTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoM
-GEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDAeFw0yMjA2MjAyMTAwMzZaFw0yNjA2
-MTkyMTAwMzZaMEUxCzAJBgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEw
-HwYDVQQKDBhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQwggEiMA0GCSqGSIb3DQEB
-AQUAA4IBDwAwggEKAoIBAQCnDDhh3C+R4JeFMOH/KoaMUPLNZfh16+CT0sWjhyDP
-oSFE7UcU+Fb1PkzUfk0p7hTpdiZG4PYvTQpzu4i+K2IusEzYgwqBtBb8RRY28p05
-2BMmhhAQxcQShEGJCQ/UTD3A48yKNbcppg6nfJGSBK0brfgT3x2E4NtSyFBTe9ZY
-HlXOz1E2LG1M8hoLb9wQiR8KT8FLy1G5ZRMy5lEN+oX9hSXaV1muer1VO0+FyZxU
-KtldR8Y9+heA95QyUvaQyyddxyIv3801h1tQs/npOGd4/S07Zqg2ufj/3xY/zhIs
-5tn2EBAslbcsDFXh96urmLgJx+My7naZlYODXJjLAp/ZAgMBAAGjUzBRMB0GA1Ud
-DgQWBBRL28Za0TgggIZ8Mq7+hO41rEWjWjAfBgNVHSMEGDAWgBRL28Za0TgggIZ8
-Mq7+hO41rEWjWjAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQBN
-DQ60qRMIPrNsAoX73BHNO3Rp8tAEZjKP7OyWxOEACJV8EuiTUUw38TmCdHLrb+P4
-sR4ApozcXWLs6n+8yhL40kSW24FrxauS4ucMeGdVTRySqF9c8M+/J0O+nI8ZrIDn
-UkjllrtaA+5slm17KpNFBZIqiJah3MydpG0l2dLNhUStQ5N5AT/r9T7UE4rJ/x1t
-SQqOOANrU7MFwaDy1oIB4uGK3b2+kjpR5GXijDc06kEaQ84cSt2P3AwqKM0I44Nd
-Sa0mpe+OdgN0ruxJvu9SKW+B1zIncMKJV3RKT5qAxpoZx6yuPL1UJV8VOaPN5Wgg
-uJKJX9Dc1NgZ8ktwuCpJ
------END CERTIFICATE-----
-    `;
-
     this.socket = io('ws://inquisitors.localdomain:15000');
     this.socket.emit('room_join', {
       userName: this.userName,
@@ -164,6 +141,30 @@ uJKJX9Dc1NgZ8ktwuCpJ
     });
 
     /* TLS PoC */
+    const caAuthority = `
+-----BEGIN CERTIFICATE-----
+MIIDazCCAlOgAwIBAgIUUkcvsMdSt+L4RdgOUq7L0/SZhjEwDQYJKoZIhvcNAQEL
+BQAwRTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoM
+GEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDAeFw0yMjA2MjAyMTAwMzZaFw0yNjA2
+MTkyMTAwMzZaMEUxCzAJBgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEw
+HwYDVQQKDBhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQwggEiMA0GCSqGSIb3DQEB
+AQUAA4IBDwAwggEKAoIBAQCnDDhh3C+R4JeFMOH/KoaMUPLNZfh16+CT0sWjhyDP
+oSFE7UcU+Fb1PkzUfk0p7hTpdiZG4PYvTQpzu4i+K2IusEzYgwqBtBb8RRY28p05
+2BMmhhAQxcQShEGJCQ/UTD3A48yKNbcppg6nfJGSBK0brfgT3x2E4NtSyFBTe9ZY
+HlXOz1E2LG1M8hoLb9wQiR8KT8FLy1G5ZRMy5lEN+oX9hSXaV1muer1VO0+FyZxU
+KtldR8Y9+heA95QyUvaQyyddxyIv3801h1tQs/npOGd4/S07Zqg2ufj/3xY/zhIs
+5tn2EBAslbcsDFXh96urmLgJx+My7naZlYODXJjLAp/ZAgMBAAGjUzBRMB0GA1Ud
+DgQWBBRL28Za0TgggIZ8Mq7+hO41rEWjWjAfBgNVHSMEGDAWgBRL28Za0TgggIZ8
+Mq7+hO41rEWjWjAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQBN
+DQ60qRMIPrNsAoX73BHNO3Rp8tAEZjKP7OyWxOEACJV8EuiTUUw38TmCdHLrb+P4
+sR4ApozcXWLs6n+8yhL40kSW24FrxauS4ucMeGdVTRySqF9c8M+/J0O+nI8ZrIDn
+UkjllrtaA+5slm17KpNFBZIqiJah3MydpG0l2dLNhUStQ5N5AT/r9T7UE4rJ/x1t
+SQqOOANrU7MFwaDy1oIB4uGK3b2+kjpR5GXijDc06kEaQ84cSt2P3AwqKM0I44Nd
+Sa0mpe+OdgN0ruxJvu9SKW+B1zIncMKJV3RKT5qAxpoZx6yuPL1UJV8VOaPN5Wgg
+uJKJX9Dc1NgZ8ktwuCpJ
+-----END CERTIFICATE-----
+    `;
+
     this.myClientPrivKey = `
 -----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQD0GnkrXmY8xWm6
@@ -249,18 +250,22 @@ KUlD6tnIneakwPv4SkxxIhodXvpk5HGeXmYvBsN32FlyDNY=
         connection.prepare(forge.util.encodeUtf8('Hi server!'));
       },
       getCertificate: function getCert(connection, hint) {
-        console.log(connection, hint, vm.myClientCertificate);
+        console.assert(connection, hint);
+        console.log(vm.myClientCertificate);
         return vm.myClientCertificate;
       },
       /* the private key for the client-side cert if provided */
       getPrivateKey: function getKey(connection, cert) {
-        console.log('Private key', connection, cert);
+        console.assert(connection, cert);
+        console.log('Private key');
         return (vm.myClientPrivKey);
       },
       tlsDataReady: function tlsDataReady(connection) {
         // TLS data (encrypted) is ready to be sent to the server
         // if you were communicating with the server below above you'd do:
-        vm.server.process(connection.tlsData.getBytes());
+        const bytes = connection.tlsData.getBytes();
+        console.log('Sending data to TLS server: ', bytes);
+        vm.server.process(bytes);
         // In real app were going to send it to routing server
       },
       dataReady: function dataReady(connection) {
@@ -275,7 +280,7 @@ KUlD6tnIneakwPv4SkxxIhodXvpk5HGeXmYvBsN32FlyDNY=
         console.log('disconnected');
       },
       error: function errorTLS(connection, error) {
-        console.log(connection);
+        console.assert(connection);
         console.log('uh oh', error);
       },
     });
@@ -350,6 +355,7 @@ ERJ6/bbnRz9ds/5ZqV0I1sMh/160S5NBCJyX5C+50VZzcmoIXoIQO1H9wtsrLKme
         const cn = certs[0].subject.getField('CN').value;
         let newVerified = '';
         if (depth === 0) {
+          // cn is Common Name, we can also verify signature and stuff here
           if (cn !== 'Bob') {
             console.log('cn is: ', cn);
             newVerified = {
@@ -357,6 +363,11 @@ ERJ6/bbnRz9ds/5ZqV0I1sMh/160S5NBCJyX5C+50VZzcmoIXoIQO1H9wtsrLKme
               message: 'Certificate common name does not match expected client.',
             };
             return newVerified;
+          }
+          if (cn !== 'Bob') {
+            console.log(certs[0].subject);
+            const signature = certs[0].subject.getField('signature').value;
+            console.log(signature);
           }
         }
         return verified;
@@ -366,18 +377,21 @@ ERJ6/bbnRz9ds/5ZqV0I1sMh/160S5NBCJyX5C+50VZzcmoIXoIQO1H9wtsrLKme
         // send message to client
         connection.prepare(forge.util.encodeUtf8('Hi client!'));
       },
-      getCertificate: function getCert(connection, hint) {
-        console.log(connection, hint, vm.myServerCertificate);
+      getCertificate: function getCert(_connection, _hint) {
+        console.assert(_connection, _hint);
+        console.log(vm.myServerCertificate);
         return vm.myServerCertificate;
       },
-      getPrivateKey: function getKey(connection, cert) {
-        console.log(connection, cert);
+      getPrivateKey: function getKey(_connection, _cert) {
+        console.assert(_connection, _cert);
         return (vm.myServerPrivKey);
       },
       tlsDataReady: function tlsDataReady(connection) {
         // TLS data (encrypted) is ready to be sent to the client
         // if you were communicating with the client above you'd do:
-        vm.client.process(connection.tlsData.getBytes());
+        const bytes = connection.tlsData.getBytes();
+        console.log('Processing data from TLS server: ', bytes);
+        vm.client.process(bytes);
         // In real app were going to send it to routing server here
       },
       dataReady: function dataReady(connection) {
