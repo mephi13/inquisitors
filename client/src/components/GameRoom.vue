@@ -2,40 +2,40 @@
   <div class="container">
     <h1> Room: {{ roomId }} </h1>
 
-    <div v-if="currentState === 'initialState'">
+    <div v-if="currentState.name === 'initialState'">
       <!-- TODO: Start game button if host, otherwise "Waiting for the host to start the game -->
       <button @click="startGame()" class="btn btn-primary btn-lg">Start</button>
     </div>
 
-    <div v-else-if="currentState === 'waitingForQuestion'">
-      <form v-on:submit.prevent="submitQuestion(questionSubmission)">
+    <div v-else-if="currentState.name === 'waitingForQuestion'">
+      <form v-on:submit.prevent="submitQuestion(currentState.questionSubmission)">
         <label for="userQuestion">Question:
-          <input type="text" placeholder="Submit your question..." v-model="questionSubmission"
+          <input type="text" placeholder="Submit your question..." v-model="currentState.questionSubmission"
             id="userQuestion" />
         </label>
         <input type="submit" value="Send" />
       </form>
     </div>
 
-    <div v-else-if="currentState === 'questionSubmitted'">
+    <div v-else-if="currentState.name === 'questionSubmitted'">
       <p>Question submitted!</p>
     </div>
 
-    <div v-else-if="currentState === 'waitingForResponse'">
-      <p>{{ this.chosenQuestion }}</p>
-      <p>{{ this.responsePrompt }}</p>
+    <div v-else-if="currentState.name === 'waitingForResponse'">
+      <p>{{ this.currentState.chosenQuestion }}</p>
+      <p>{{ this.currentState.responsePrompt }}</p>
       <button @click="submitResponse(true)" class="btn btn-primary btn-lg">YES</button>
       <button @click="submitResponse(false)" class="btn btn-secondary btn-lg">NO</button>
     </div>
 
-    <div v-else-if="currentState === 'anonymousVetoNetwork'">
+    <div v-else-if="currentState.name === 'anonymousVetoNetwork'">
       <!-- TODO: Run veto network in the background, show sime progress bar? -->
       <p>Answer submitted. Waiting for other players...</p>
     </div>
 
-    <div v-else-if="currentState === 'waitingForPublicVote'">
+    <div v-else-if="currentState.name === 'waitingForPublicVote'">
       <!-- TODO: Prompt for vote -->
-      <div v-if="sharedResult == true">
+      <div v-if="gameResult == true">
         <h2>Someone answered yes! Name the heretic!</h2>
       </div>
       <div v-else>
@@ -49,7 +49,7 @@
       </div>
     </div>
 
-    <div v-else-if="currentState === 'waitingForNextRound'">
+    <div v-else-if="currentState.name === 'waitingForNextRound'">
       <button @click="nextRound" class="">Next Round</button>
     </div>
 
@@ -84,7 +84,7 @@
 <script>
 import { io } from 'socket.io-client';
 import forge from 'node-forge';
-import { tlsCreateConnection } from '../services/TLS';
+import avn from '@/services/AVN.js';
 
 export default {
   name: 'GameRoom',
@@ -93,37 +93,19 @@ export default {
       socket: null,
       userName: this.$route.query.userName,
       players: [],
-      questionSubmission: '',
-      chosenQuestion: '',
-      responsePrompt: '',
-      respondersSubset: [],
-      testMessage: '',
-      messageFromTlsServer: '',
-      messageFrom: '',
-      aliceMessage: '',
-      isTlsServer: false,
-      sharedResult: undefined,
+      secretNetwork: null,
+      gameResult: null,
       publicVotesAgainst: {},
-      currentState: 'initialState',
+      currentState: {
+        name: 'initialState',
+      },
     };
   },
   props: ['roomId'],
   methods: {
     stateTransition(nextState) {
-      console.log(`Transitioning to state ${nextState}`);
+      console.log(`Transitioning to state ${nextState.name}`);
       this.currentState = nextState;
-    },
-
-    resetState() {
-      /* Reset back to initial state */
-      this.currentState = 'initialState';
-      /* TODO: Use scoping rules to reset these - associate object with each state */
-      this.publicVotesAgainst = {};
-      this.respondersSubset = [];
-      this.questionSubmission = '';
-      this.chosenQuestion = '';
-      this.responsePrompt = '';
-      this.sharedResult = undefined;
     },
 
     startGame() {
@@ -138,15 +120,21 @@ export default {
         question,
       });
       /* Do a state transition */
-      this.stateTransition('questionSubmitted');
+      this.stateTransition({
+        name: 'questionSubmitted',
+      });
     },
 
-    submitResponse(response) {
+    submitResponse = async function(response) {
+      if (this.currentState.mockAnswer) {
+        response = false;
+      }
       /* Do a state transition */
-      this.stateTransition('anonymousVetoNetwork');
-      /* TODO: Implement anonymous veto network */
-      console.assert(response);
-      /* TODO: Run AVN then notify the server */
+      this.stateTransition({
+        name: 'anonymousVetoNetwork',
+      });
+      this.gameResult = avn.runProtocol(this.secretNetwork, response);
+
       this.socket.emit('avnet_complete', {
         roomId: this.roomId,
       });
@@ -158,7 +146,9 @@ export default {
         vote,
       });
       /* Do a state transition */
-      this.stateTransition('publicVoteSubmitted');
+      this.stateTransition({
+        name: 'publicVoteSubmitted'
+      });
     },
 
     nextRound() {
@@ -172,27 +162,6 @@ export default {
       // when encrypted TLS data is received from the client, process it
       this.tlsClient.prepare(forge.util.encodeUtf8(message));
     },
-
-    connectToTlsServer() {
-      console.log('Connecting to TLS server...');
-      // start the handshake process
-      this.tlsClient.handshake();
-    },
-
-    processDataFromTlsServer(message) {
-      console.log('Processing message from TLS: ', (message));
-      // when encrypted TLS data is received from the server, process it
-      this.messageFromTlsServer = message;
-    },
-
-    routeTlsMessage(payload, toUser) {
-      const encodedPayload = (btoa(payload));
-      this.socket.emit('send_tls_message', {
-        roomId: this.roomId,
-        payload: encodedPayload,
-        receiver: toUser,
-      });
-    },
   },
 
   created() {
@@ -202,54 +171,50 @@ export default {
       roomId: this.roomId,
     });
 
-    this.socket.on('tls_message', (data) => {
-      console.log('Handling tls_message');
-      this.messageFrom = data.sender;
-      console.log(data);
-      this.tlsClient.process(atob(data.payload));
-    });
-
-    this.socket.on('tls_function', (data) => {
-      console.log(data);
-      this.isTlsServer = data.isServer;
-      // Update TLS client for Alice
-      this.tlsClient = tlsCreateConnection(
-        data.isServer,
-        this.processDataFromTlsServer,
-        this.routeTlsMessage,
-        'Bob',
-      );
-      console.log('We are Alice');
-    });
-
     this.socket.on('room_update', (data) => {
       /* Update the players' list */
       this.players = data.users.map((user) => user.name);
     });
 
     this.socket.on('question_prompt', () => {
+      const myName = this.userName;
+      /* Game started - establish secure channels with other players */
+      this.secretNetwork = avn.establishNetwork(
+        this.socket,
+        myName,
+        this.players.filter(player => player != myName)
+      );
+
       /* Do a state transition */
-      this.stateTransition('waitingForQuestion');
+      this.stateTransition({
+        name: 'waitingForQuestion'
+        questionSubmission: '',
+      );
     });
 
     this.socket.on('response_prompt', (data) => {
-      this.chosenQuestion = data.question;
+      const nextState = {
+        name: 'waitingForResponse',
+        chosenQuestion: data.question,
+      };
       if (data.promptUser) {
-        /* TODO: Wait for user input, then run anonymous veto network */
-        this.responsePrompt = 'Answer the inquisitor\'s question or burn';
+        /* Wait for user input, then run anonymous veto network */
+        nextState.responsePrompt = 'Answer the inquisitor\'s question or burn';
+        nextState.mockAnswer = false;
       } else {
-        /* TODO: Wait for user input, then run anonymous veto network with answer set to 0 */
-        this.responsePrompt = 'Enter an answer so that no one knows you are part of the grand inquisition';
+        /* Wait for user input, then run anonymous veto network with answer set to 0 anyway */
+        nextState.responsePrompt = 'Enter an answer so that no one knows you are part of the grand inquisition';
+        nextState.mockAnswer = true;
       }
-      /* Do a state transition */
-      this.stateTransition('waitingForResponse');
+      this.stateTransition(nextState);
     });
 
     this.socket.on('public_vote_prompt', (data) => {
-      /* Save a list of players whose votes actually counted */
-      this.respondersSubset = data.respondersSubset;
-      /* Do a state transition */
-      this.stateTransition('waitingForPublicVote');
+      this.stateTransition({
+        name: 'waitingForPublicVote',
+        /* Save the list of players whose votes actually counted */
+        respondersSubset: data.respondersSubset,
+      });
     });
 
     this.socket.on('public_vote_reveal', (data) => {
@@ -273,14 +238,6 @@ export default {
         this.stateTransition('waitingForNextRound');
       }
     });
-
-    // create TLS client
-    this.tlsClient = tlsCreateConnection(
-      this.isTlsServer,
-      this.processDataFromTlsServer,
-      this.routeTlsMessage,
-      'Alice',
-    );
   },
 };
 </script>
