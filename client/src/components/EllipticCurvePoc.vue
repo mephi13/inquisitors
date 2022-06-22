@@ -8,9 +8,7 @@
 </template>
 
 <script>
-import zkp from '@/libs/zkp';
-
-const BN = require('bn.js');
+import av from '@/libs/avnet_core';
 
 export default {
   name: 'BurnAtTheStake',
@@ -29,19 +27,21 @@ export default {
   },
   created() {
     /* eslint-disable */
-    const { commitment, proof } = zkp.getRandomCommitmentAndProof();
-    const newBase = commitment.mul(new BN(12));
-    const secretExponent = new BN(5);
-    const publicCommit = newBase.mul(secretExponent);
-    const newProof = zkp.getZeroKnowledgeProof(secretExponent, newBase);
+    const eph1 = av.getEphemeralCommitmentWithProof();
+    const eph2 = av.getEphemeralCommitmentWithProof();
+    const eph3 = av.getEphemeralCommitmentWithProof();
+    /* TODO: In production environment remember to strip the secrets from the ephemerals above */
+    const commits = [eph1, eph2, eph3];
+    const tempShare1 = av.getSecretShareIfProofsValid(commits, 0);
+    const tempShare2 = av.getSecretShareIfProofsValid(commits, 1);
+    const tempShare3 = av.getSecretShareIfProofsValid(commits, 2);
 
-    console.log(zkp.pointAtInfinity);
+    const finalShare1 = av.commitToVeto(false, eph1.secret, tempShare1);
+    const finalShare2 = av.commitToVeto(true, eph2.secret, tempShare2);
+    const finalShare3 = av.commitToVeto(false, eph3.secret, tempShare3);
 
-    if (zkp.verifyZeroKnowledgeProof(newProof, publicCommit, newBase)) {
-      console.log('VERIFICATION OK');
-    } else {
-      console.log('VERIFICATION FAILED');
-    }
+    const result = av.getFinalResultIfProofsValid([finalShare1, finalShare2, finalShare3]);
+    console.log(result);
   },
 };
 </script>

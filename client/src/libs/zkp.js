@@ -78,6 +78,7 @@ function getRandomCommitmentAndProof() {
   const pair = ec.genKeyPair();
 
   return {
+    secret: pair.getPrivate(),
     commitment: pair.getPublic(),
     proof: getZeroKnowledgeProof(pair.getPrivate()),
   };
