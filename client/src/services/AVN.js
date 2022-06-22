@@ -1,10 +1,34 @@
+/* eslint-disable */
+
 /* TODO: Propagate permanent keys from the application down to this helper module */
 import forge from 'node-forge';
 import { tlsCreateConnection } from './TLS';
+const EC = require('elliptic').ec;
+
+/* Create and initialize EC context */
+const ec = new EC('curve25519');
+
+function getChallenge(ephemeral) {
+  /* Get Schnorr-NIZKP challenge, i.e. hash over ephemeral */
+  return ephemeral.hashInt();
+}
+
+function getZeroKnowledgeProof(secretExponent, publicCommitment) {
+  /* */
+  const ephemeral = ec.getKeyPair();
+  const ephExponent = ephemeral.getPrivate();
+  const response = ephExponent - secretExponent * getChallenge(ephemeral);
+  return { response, ephemeral };
+}
 
 function getCommitment() {
   /* TODO: Produce a commitment value and a non-interactive ZKP */
-  return { ephemeral: 0, proof: '' };
+  const key = ec.getKeyPair();
+
+  return {
+    ephemeral: key.getPublic().encode('hex'),
+    proof: getZeroKnowledgeProof()
+  };
 }
 
 function verifyProof(publicValue, proof) {

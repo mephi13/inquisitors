@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 import forge from 'node-forge';
 
 const oldCaAuthority = `

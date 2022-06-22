@@ -140,5 +140,5 @@ def on_route_tls(data: Dict[str, str]) -> None:
             "payload": payload,
         }, to=receiver_id)
     except KeyError as e:
-        log.error(f"Error in send_tls_message: {type(e).__name__}: {e}")
+        log.error(f"Error in on_route_tls: {type(e).__name__}: {e}")
         disconnect()

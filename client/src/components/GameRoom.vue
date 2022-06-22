@@ -10,8 +10,8 @@
     <div v-else-if="currentState.name === 'waitingForQuestion'">
       <form v-on:submit.prevent="submitQuestion(currentState.questionSubmission)">
         <label for="userQuestion">Question:
-          <input type="text" placeholder="Submit your question..." v-model="currentState.questionSubmission"
-            id="userQuestion" />
+          <input type="text" placeholder="Submit your question..."
+            v-model="currentState.questionSubmission" id="userQuestion" />
         </label>
         <input type="submit" value="Send" />
       </form>
@@ -84,8 +84,8 @@
 <script>
 import { io } from 'socket.io-client';
 import forge from 'node-forge';
-import avn from '@/services/AVN.js';
-
+import avn from '@/services/AVN';
+/* eslint-disable */
 export default {
   name: 'GameRoom',
   data() {
@@ -125,7 +125,7 @@ export default {
       });
     },
 
-    submitResponse = async function(response) {
+    async submitResponse(response) {
       if (this.currentState.mockAnswer) {
         response = false;
       }
@@ -178,6 +178,7 @@ export default {
 
     this.socket.on('question_prompt', () => {
       const myName = this.userName;
+      console.log('Establishing a secure network...');
       /* Game started - establish secure channels with other players */
       this.secretNetwork = avn.establishNetwork(
         this.socket,
@@ -187,9 +188,9 @@ export default {
 
       /* Do a state transition */
       this.stateTransition({
-        name: 'waitingForQuestion'
+        name: 'waitingForQuestion',
         questionSubmission: '',
-      );
+      });
     });
 
     this.socket.on('response_prompt', (data) => {
