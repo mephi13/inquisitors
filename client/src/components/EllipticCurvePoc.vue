@@ -8,80 +8,9 @@
 </template>
 
 <script>
-import sha256 from 'crypto-js/sha256';
+import zkp from '@/libs/zkp';
 
-const EC = require('elliptic').ec;
-/* eslint-disable */
-/* Create and initialize EC context */
-const ec = new EC('secp256k1');
-
-async function getChallenge(publicEphemeral) {
-  /* Get Schnorr challenge, i.e. hash over ephemeral */
-  const encoding = publicEphemeral.encode('hex');
-  const hash = sha256('sha256', encoding);
-  console.log(`HASHED TO ${hash}`);
-  const temp = ec.genKeyPair();
-  return temp.getPrivate();
-}
-
-function getZeroKnowledgeProof(secretExponent, publicKey) {
-  /* */
-  const ephemeral = ec.genKeyPair();
-
-  const X = ephemeral.getPublic();
-  const x = ephemeral.getPrivate();
-
-  const c = getChallenge(X);
-  const s = x.add(secretExponent.mul(c));
-
-
-  const testLhs = ec.keyFromPrivate(s).getPublic();
-  const testRhs = publicKey.mul(c).add(X);
-
-  const equalEc = (P, Q) => {
-
-    return P.getX().eq(Q.getX()) && P.getY().eq(Q.getY());
-  }
-  if (equalEc(testLhs, testRhs)) {
-
-    console.log("SCHNORR VERIFICATION SUCCESSFUL");
-
-  } else {
-
-    console.log(testLhs);
-    console.log(testRhs);
-    console.log("SCHNORR VERIFICATION FAILED");
-  }
-
-  return {};
-}
-
-function getCommitment() {
-  /* TODO: Produce a commitment value and a non-interactive ZKP */
-  const key = ec.genKeyPair();
-
-  console.log(`getCommitment(): ${key}`);
-
-  const secret = key.getPrivate();
-
-  return {
-    ephemeral: key.getPublic().encode('hex'),
-    proof: getZeroKnowledgeProof(secret, key.getPublic()),
-  };
-}
-
-function verifyProof(publicValue, proof) {
-  /* TODO: Verify proof of knowledge of the secret exponent */
-  return true;
-}
-
-function getResultShare(myName, bit, othersCommitments) {
-
-  /* Assume commitments format to be { name, ephemeral, proof } */
-  const share = othersCommitments.reduce((acc, curr) => {
-
-  }, 0);
-}
+const BN = require('bn.js');
 
 export default {
   name: 'BurnAtTheStake',
@@ -99,8 +28,18 @@ export default {
     },
   },
   created() {
+    /* eslint-disable */
+    const { commitment, proof } = zkp.getRandomCommitmentAndProof();
+    const newBase = commitment.mul(new BN(12));
+    const secretExponent = new BN(5);
+    const publicCommit = newBase.mul(secretExponent);
+    const newProof = zkp.getZeroKnowledgeProof(secretExponent, newBase);
 
-    getCommitment();
-  }
+    if (zkp.verifyZeroKnowledgeProof(newProof, publicCommit, newBase)) {
+      console.log('VERIFICATION OK');
+    } else {
+      console.log('VERIFICATION FAILED');
+    }
+  },
 };
 </script>
