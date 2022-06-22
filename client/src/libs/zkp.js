@@ -12,8 +12,6 @@ const ec = new EC('secp256k1');
  * @return Hash over the point
  */
 function hashPoint(point) {
-  console.log('In hashPoint');
-  console.log(point);
   /* Encode the point as hex */
   const encoding = point.encode('hex');
   /* Hash the encoding (note that 'sha256' returns an object which can be cast to string) */
@@ -43,7 +41,6 @@ function getZeroKnowledgeProof(secretExponent, basePoint = ec.curve.g) {
   /* Generate an ephemeral commitment */
   const ephSecret = getRandomExponent();
   const ephPublic = basePoint.mul(ephSecret);
-  console.log(ephPublic);
   /* Get Schnorr challenge as a hash over the public ephemeral */
   const challenge = hashPoint(ephPublic);
   /* Calculate Schnorr response */
@@ -74,10 +71,12 @@ function verifyZeroKnowledgeProof(proof, publicPoint, basePoint = ec.curve.g) {
 /**
  * @brief Generate a random commitment and produce a non-interactive zero-knowledge
  *        proof of knowledge of the corresponding discrete logarithm
+ * @note This API does not support using custom group generators
  */
 function getRandomCommitmentAndProof() {
   /* Generate a new key pair */
   const pair = ec.genKeyPair();
+
   return {
     commitment: pair.getPublic(),
     proof: getZeroKnowledgeProof(pair.getPrivate()),
@@ -85,7 +84,14 @@ function getRandomCommitmentAndProof() {
 }
 
 export default {
-  ec, /* Export the curve for reuse in anonymous veto network lib */
+  /* Hack to recover the point at infinity */
+  pointAtInfinity: (function () {
+    /* Generate random point */
+    const pair = ec.genKeyPair();
+    const pubKey = pair.getPublic();
+    /* Subtract the point from itself */
+    return pubKey.add(pubKey.neg());
+  }()),
   getZeroKnowledgeProof,
   getRandomCommitmentAndProof,
   verifyZeroKnowledgeProof,

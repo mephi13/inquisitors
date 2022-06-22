@@ -35,6 +35,8 @@ export default {
     const publicCommit = newBase.mul(secretExponent);
     const newProof = zkp.getZeroKnowledgeProof(secretExponent, newBase);
 
+    console.log(zkp.pointAtInfinity);
+
     if (zkp.verifyZeroKnowledgeProof(newProof, publicCommit, newBase)) {
       console.log('VERIFICATION OK');
     } else {
