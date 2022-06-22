@@ -1,5 +1,6 @@
 """Configuration constants for inquisitors backend."""
 import os
+from OpenSSL.crypto import load_certificate, load_privatekey, FILETYPE_PEM 
 
 
 class BaseConfig(object):
@@ -11,3 +12,5 @@ class BaseConfig(object):
     )
     CSRF_ENABLED = True
     SECRET_KEY = os.environ["SERVER_SECRET_KEY"]
+    CA_CERT = load_certificate(FILETYPE_PEM ,open('./resources/rootCA.pem','r').read())
+    CA_KEY = load_privatekey(FILETYPE_PEM ,open('./resources/rootCA.key','r').read())
