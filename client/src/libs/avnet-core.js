@@ -2,6 +2,8 @@
 
 import zkp from '@/libs/zkp';
 
+const BN = require('bn.js');
+
 /**
  * @brief Get random commitment and produce a ZKP for it
  * @return Random commitment and a corresponding zero-knowledge proof
@@ -92,9 +94,43 @@ function getFinalResultIfProofsValid(secretShares) {
   return Number(!finalResult.eq(zkp.pointAtInfinity));
 }
 
+/**
+ * @brief Convert veto object to plain JSON
+ * @param {Object} vetoObject Typed veto object
+ * @return JSON
+ */
+function vetoToJson(vetoObject) {
+  return {
+    commitment: vetoObject.commitment.encode(),
+    basePoint: vetoObject.basePoint.encode(),
+    proof: {
+      commitment: vetoObject.proof.commitment.encode(),
+      response: vetoObject.proof.response.toString(),
+    },
+  };
+}
+
+/**
+ * @brief Recover veto object form plain JSON
+ * @param {Object} jsonObject JSON object
+ * @return Typed veto object
+ */
+function vetoFromJson(jsonObject) {
+  return {
+    commitment: zkp.ec.keyFromPublic(jsonObject.commitment, 'hex').getPublic(),
+    basePoint: zkp.ec.keyFromPublic(jsonObject.basePoint, 'hex').getPublic(),
+    proof: {
+      commitment: zkp.ec.keyFromPublic(jsonObject.proof.commitment, 'hex').getPublic(),
+      response: new BN(jsonObject.proof.response),
+    },
+  };
+}
+
 export default {
   getEphemeralCommitmentWithProof,
   commitToVeto,
   getSecretShareIfProofsValid,
   getFinalResultIfProofsValid,
+  vetoToJson,
+  vetoFromJson,
 };
