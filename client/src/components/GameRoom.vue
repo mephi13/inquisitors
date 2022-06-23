@@ -155,7 +155,7 @@ export default {
     },
 
     async submitResponse(response) {
-      console.log('submitResponse() called');
+      const { mockAnswer } = this.currentState;
       /* Do a state transition */
       this.stateTransition({
         name: 'anonymousVetoNetwork',
@@ -164,7 +164,7 @@ export default {
       /* Run anonymous veto network */
       this.gameResult = await avnet.runAnonymousVeto(
         this.secureNetwork,
-        this.currentState.mockAnswer ? false : response,
+        mockAnswer ? false : response,
       );
 
       /* Do a state transition */
@@ -185,10 +185,14 @@ export default {
     },
 
     nextRound() {
-      /* TODO: Reset the socket, i.e. remove one-time event listeners */
-      this.socket.emit('next_round_ready', {
-        roomId: this.roomId,
+      /* For now for demonstration purposes just return home */
+      this.$router.push({
+        name: 'HomePage',
       });
+      /* TODO: Reset the socket, i.e. remove one-time event listeners */
+      // this.socket.emit('next_round_ready', {
+      //   roomId: this.roomId,
+      // });
     },
   },
 
