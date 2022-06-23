@@ -67,11 +67,24 @@
       {{ player }}
     </div>
   </div>
+  <form v-on:submit.prevent="connectToTlsServer()">
+    <input type="submit" value="Handshake with Alice" />
+  </form>
+  <form v-on:submit.prevent="sendMesageToTlsServer(aliceMessage)">
+    <label for="messageToServer">Send message to Alice/Bob:
+      <input type="text" placeholder="Send Test message to peer." v-model="aliceMessage"
+        id="messageAlice" />
+    </label>
+    <input type="submit" value="Send" />
+  </form>
+  <div>{{messageFrom}}:{{messageFromTlsServer}}</div>
 
 </template>
 
 <script>
 import { io } from 'socket.io-client';
+import forge from 'node-forge';
+import { tlsCreateConnection } from '../services/TLS';
 
 export default {
   name: 'GameRoom',
@@ -84,6 +97,11 @@ export default {
       chosenQuestion: '',
       responsePrompt: '',
       respondersSubset: [],
+      testMessage: '',
+      messageFromTlsServer: '',
+      messageFrom: '',
+      aliceMessage: '',
+      isTlsServer: false,
       sharedResult: undefined,
       publicVotesAgainst: {},
       currentState: 'initialState',
@@ -148,6 +166,33 @@ export default {
         roomId: this.roomId,
       });
     },
+
+    sendMesageToTlsServer(message) {
+      console.log('Sending message to TLS server: ', message);
+      // when encrypted TLS data is received from the client, process it
+      this.tlsClient.prepare(forge.util.encodeUtf8(message));
+    },
+
+    connectToTlsServer() {
+      console.log('Connecting to TLS server...');
+      // start the handshake process
+      this.tlsClient.handshake();
+    },
+
+    processDataFromTlsServer(message) {
+      console.log('Processing message from TLS: ', (message));
+      // when encrypted TLS data is received from the server, process it
+      this.messageFromTlsServer = message;
+    },
+
+    routeTlsMessage(payload, toUser) {
+      const encodedPayload = (btoa(payload));
+      this.socket.emit('send_tls_message', {
+        roomId: this.roomId,
+        payload: encodedPayload,
+        receiver: toUser,
+      });
+    },
   },
 
   created() {
@@ -155,6 +200,26 @@ export default {
     this.socket.emit('room_join', {
       userName: this.userName,
       roomId: this.roomId,
+    });
+
+    this.socket.on('tls_message', (data) => {
+      console.log('Handling tls_message');
+      this.messageFrom = data.sender;
+      console.log(data);
+      this.tlsClient.process(atob(data.payload));
+    });
+
+    this.socket.on('tls_function', (data) => {
+      console.log(data);
+      this.isTlsServer = data.isServer;
+      // Update TLS client for Alice
+      this.tlsClient = tlsCreateConnection(
+        data.isServer,
+        this.processDataFromTlsServer,
+        this.routeTlsMessage,
+        'Bob',
+      );
+      console.log('We are Alice');
     });
 
     this.socket.on('room_update', (data) => {
@@ -208,6 +273,14 @@ export default {
         this.stateTransition('waitingForNextRound');
       }
     });
+
+    // create TLS client
+    this.tlsClient = tlsCreateConnection(
+      this.isTlsServer,
+      this.processDataFromTlsServer,
+      this.routeTlsMessage,
+      'Alice',
+    );
   },
 };
 </script>

@@ -5,7 +5,7 @@ from typing import Dict
 from . import socketio, log
 from .player import get_user_id
 from .game_rooms import find_user_room, game_rooms
-from flask_socketio import disconnect
+from flask_socketio import disconnect, emit
 
 @socketio.on("connect")
 def on_connect() -> None:
@@ -43,6 +43,14 @@ def on_room_join(data: Dict[str, str]) -> None:
 
         # Notify all players in the room about the newcomer
         room.on_update()
+
+        # for PoC, tell Alice she's 
+        # the server
+        if user_name == "Alice":
+            log.debug("Alice detected, sending message...")
+            emit("tls_function", {
+                "isServer": True,
+            }, to=user_id)
 
         log.info(
             f"User {user_id} ({user_name}) joined room {room_id}"
@@ -119,4 +127,26 @@ def on_next_round_ready(data: Dict[str, str]) -> None:
         room.on_next_round_ready()
     except KeyError as e:
         log.error(f"Error in on_next_round_ready: {type(e).__name__}: {e}")
+        disconnect()
+
+@socketio.on("send_tls_message")
+def send_tls_message(data: Dict[str, str]) -> None:
+    """Route client-client TLS message."""
+    try:
+        sender_id = get_user_id()
+        room_id = data["roomId"]
+        receiver_name = data["receiver"]
+        payload = data["payload"]
+        room = game_rooms[room_id]
+        receiver_id = room.get_user_id_by_name(receiver_name)
+        sender_name = room.players[sender_id].name
+        log.debug("TLS message to route: " + str(data))
+
+        emit("tls_message", {
+            "sender": sender_name,
+            "receiver": receiver_name,
+            "payload": payload,
+        }, to=receiver_id)
+    except KeyError as e:
+        log.error(f"Error in send_tls_message: {type(e).__name__}: {e}")
         disconnect()
