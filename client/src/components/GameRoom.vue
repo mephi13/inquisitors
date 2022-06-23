@@ -95,6 +95,10 @@
         {{ player.name }}
       </div>
     </div>
+
+    <hr />
+
+    <button @click="copyRoomId" class="btn btn-info outline">Copy room id</button>
   </div>
 </template>
 
@@ -120,6 +124,10 @@ export default {
   },
   props: ['roomId'],
   methods: {
+    copyRoomId() {
+      navigator.clipboard.writeText(this.roomId);
+    },
+
     stateTransition(nextState) {
       console.log(`Transitioning to state ${nextState.name}`);
       this.currentState = nextState;
