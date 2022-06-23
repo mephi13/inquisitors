@@ -3,7 +3,6 @@ import HomePage from '@/components/HomePage.vue';
 import JoinPrompt from '@/components/JoinPrompt.vue';
 import GameRoom from '@/components/GameRoom.vue';
 import BurnAtTheStake from '@/components/BurnAtTheStake.vue';
-import EllipticCurvePoc from '@/components/EllipticCurvePoc.vue';
 
 const routes = [
   {
@@ -26,11 +25,6 @@ const routes = [
     path: '/burn',
     name: 'BurnAtTheStake',
     component: BurnAtTheStake,
-  },
-  {
-    path: '/ec',
-    name: 'EllipticCurvePoc',
-    component: EllipticCurvePoc,
   },
 ];
 

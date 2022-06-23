@@ -43,8 +43,9 @@
       </div>
 
       <div v-for="player in players" :key="player">
-        <div v-if="player !== userName" class="container">
-          <button @click="submitVote(player)" class="btn btn-primary btn-lg">{{ player }}</button>
+        <div v-if="player.name !== userName" class="container">
+          <button @click="submitVote(player.name)"
+            class="btn btn-primary btn-lg">{{ player }}</button>
         </div>
       </div>
     </div>
@@ -62,30 +63,18 @@
   <hr />
 
   <p> Players: </p>
-  <div v-for="player in players" :key="player" class="container">
+  <div v-for="player in players" :key="player.index" class="container">
     <div class="container">
-      {{ player }}
+      {{ player.name }}
     </div>
   </div>
-  <form v-on:submit.prevent="connectToTlsServer()">
-    <input type="submit" value="Handshake with Alice" />
-  </form>
-  <form v-on:submit.prevent="sendMesageToTlsServer(aliceMessage)">
-    <label for="messageToServer">Send message to Alice/Bob:
-      <input type="text" placeholder="Send Test message to peer." v-model="aliceMessage"
-        id="messageAlice" />
-    </label>
-    <input type="submit" value="Send" />
-  </form>
-  <div>{{messageFrom}}:{{messageFromTlsServer}}</div>
 
 </template>
 
 <script>
 import { io } from 'socket.io-client';
-import forge from 'node-forge';
-import avn from '@/services/AVN';
-/* eslint-disable */
+import avnet from '@/libs/avnet-msgs';
+
 export default {
   name: 'GameRoom',
   data() {
@@ -93,7 +82,7 @@ export default {
       socket: null,
       userName: this.$route.query.userName,
       players: [],
-      secretNetwork: null,
+      secureNetwork: null,
       gameResult: null,
       publicVotesAgainst: {},
       currentState: {
@@ -126,15 +115,19 @@ export default {
     },
 
     async submitResponse(response) {
-      if (this.currentState.mockAnswer) {
-        response = false;
-      }
+      console.log('submitResponse() called');
       /* Do a state transition */
       this.stateTransition({
         name: 'anonymousVetoNetwork',
       });
-      this.gameResult = avn.runProtocol(this.secretNetwork, response);
 
+      /* Run anonymous veto network */
+      this.gameResult = avnet.runAnonymousVeto(
+        this.secureNetwork,
+        this.currentState.mockAnswer ? false : response,
+      );
+
+      /* Do a state transition */
       this.socket.emit('avnet_complete', {
         roomId: this.roomId,
       });
@@ -147,7 +140,7 @@ export default {
       });
       /* Do a state transition */
       this.stateTransition({
-        name: 'publicVoteSubmitted'
+        name: 'publicVoteSubmitted',
       });
     },
 
@@ -155,12 +148,6 @@ export default {
       this.socket.emit('next_round_ready', {
         roomId: this.roomId,
       });
-    },
-
-    sendMesageToTlsServer(message) {
-      console.log('Sending message to TLS server: ', message);
-      // when encrypted TLS data is received from the client, process it
-      this.tlsClient.prepare(forge.util.encodeUtf8(message));
     },
   },
 
@@ -173,18 +160,18 @@ export default {
 
     this.socket.on('room_update', (data) => {
       /* Update the players' list */
-      this.players = data.users.map((user) => user.name);
+      this.players = data.users;
     });
 
     this.socket.on('question_prompt', () => {
-      const myName = this.userName;
       console.log('Establishing a secure network...');
       /* Game started - establish secure channels with other players */
-      this.secretNetwork = avn.establishNetwork(
-        this.socket,
-        myName,
-        this.players.filter(player => player != myName)
-      );
+      this.secureNetwork = avnet.establishSecureNetwork({
+        socket: this.socket,
+        roomId: this.roomId,
+        players: this.players,
+        ownName: this.userName,
+      });
 
       /* Do a state transition */
       this.stateTransition({
@@ -228,7 +215,9 @@ export default {
       }
 
       if (data.heretic === this.userName) {
-        this.stateTransition('burnedAtTheStake');
+        this.stateTransition({
+          name: 'burnedAtTheStake',
+        });
         this.$router.push({
           name: 'BurnAtTheStake',
           query: { prosecutors: this.publicVotesAgainst[this.userName] },
@@ -236,7 +225,9 @@ export default {
       } else {
         /* TODO: Check if game should continue (enough players) */
         /* Do a state transition */
-        this.stateTransition('waitingForNextRound');
+        this.stateTransition({
+          name: 'waitingForNextRound',
+        });
       }
     });
   },

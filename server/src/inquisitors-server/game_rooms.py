@@ -15,10 +15,12 @@ class GameRoom:
         # Map session IDs to Player instances
         self.players: Dict[str, Player] = {}
         self.responders_subset: Dict[str, Player] = {}
+        self.index_pool = 0
 
     def join(self, user_id: str, user_name: str) -> None:
         """Join the room."""
-        self.players[user_id] = Player(user_id, user_name)
+        self.players[user_id] = Player(user_id, user_name, self.index_pool)
+        self.index_pool += 1
 
         # Use event context to assign the current client to
         # the room at Flask level
@@ -40,10 +42,10 @@ class GameRoom:
 
     def on_update(self) -> None:
         """Notify the players about room update."""
-        users = self._get_users_names()
+        users = self._get_users()
         if users:
             self.emit("room_update", {
-                "users": self._get_users_names(),
+                "users": self._get_users(),
             })
         else:
             # No users left, unlink ourselves from the global map
@@ -81,7 +83,7 @@ class GameRoom:
         if all([ player.voted_for for player in self.players.values() ]):
             heretic = self._get_heretic()
             self.emit("public_vote_reveal", {
-                "votes": self._get_users_with_votes_cast(),
+                "votes": self._get_users(),
                 "heretic": heretic.name if heretic else "",
             })
 
@@ -116,14 +118,13 @@ class GameRoom:
         keys_subset = sample(list(self.players.keys()), count)
         return { id: self.players[id] for id in keys_subset }
 
-    def _get_users_names(self) -> List[Dict[str, str]]:
+    def _get_users(self) -> List[Dict[str, str]]:
         """Fetch users in the room in a transport-ready format."""
-        return [ { "name": player.name } for player in self.players.values() ]
-
-    def _get_users_with_votes_cast(self) -> List[Dict[str, str]]:
-        """Fetch users along with the votes they cast."""
-        return [ { "name": player.name, "votedFor": player.voted_for } \
-            for player in self.players.values() ]
+        return [ {
+            "name": player.name,
+            "index" : player.index,
+            "votedFor" : player.voted_for
+            } for player in self.players.values() ]
 
     def _get_heretic(self) -> Optional[Player]:
         """Get name of the player with the most votes or None if tie."""

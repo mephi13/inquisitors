@@ -85,7 +85,18 @@ function sign(tlsCertPem) {
 tlsCert.sign(tlsPrivateKey)
 sign(forge.pki.certificateToPem(tlsCert))
 
-function tlsCreateConnection(isServer, onDataReceivedCallback, sendDataCallback, withUser) {
+/**
+ * @brief Create a connection object
+ * @param {boolean} isServer Flag indicating whether we should take the role of the server
+ * @param {Function} onDataReceived Function called when new data is received
+ * @param {Function} routerCallback Function called with prepared data ready to be sent
+ * @param {str} peerName Name of the peer party, later passed to the routerCallback
+ * @returns A TLS connection object
+ */
+function createConnection(isServer, onDataReceived, routerCallback, peerName) {
+  /* Use easily overridable function */
+  const debugLog = (message) => { console.log(message); };
+
   return forge.tls.createConnection({
     server: isServer,
     caStore: [tlsCaAuthority],
@@ -95,53 +106,36 @@ function tlsCreateConnection(isServer, onDataReceivedCallback, sendDataCallback,
       forge.tls.CipherSuites.TLS_RSA_WITH_AES_128_CBC_SHA,
       forge.tls.CipherSuites.TLS_RSA_WITH_AES_256_CBC_SHA],
     verifyClient: true,
-    verify: function verif(connection, verified, depth, certs) {
-      // const cn = certs[0].subject.getField('CN').value;
-      // let newVerified = null;
-      // if we want some additional verification
-      /* if (depth === 0) {
-        if (cn !== 'Alice') {
-          newVerified = {
-            alert: forge.tls.Alert.Description.bad_certificate,
-            message: '[TLS] Certificate common name does not match hostname.',
-          };
-          return newVerified;
-        }
-      } */
+    verify(connection, verified, depth, certs) {
       console.assert(connection, depth, certs);
+      /* TODO: Check also common name */
+      // return verified && certs[0].subject.getField('CN').value === peerName;
       return verified;
     },
+
     connected: function connect(connection) {
       console.assert(connection);
-      console.log('[TLS] connected');
-      // send message to server
-      // connection.prepare(forge.util.encodeUtf8('Hi server!'));
+      debugLog(`Established TLS connection with ${peerName}`);
     },
-    getCertificate: function getCert(connection, hint) {
+
+    getCertificate(connection, hint) {
       console.assert(connection, hint);
-      // console.log(tlsCertPem);
       return tlsCertPem;
     },
+
     /* the private key for the client-side cert if provided */
-    getPrivateKey: function getKey(connection, cert) {
+    getPrivateKey(connection, cert) {
       console.assert(connection, cert);
-      // console.log('[TLS] private key');
-      return (tlsPrivateKeyPem);
+      return tlsPrivateKeyPem;
     },
-    tlsDataReady: function tlsDataReady(connection) {
-      // TLS data (encrypted) is ready to be sent to the server:
+    tlsDataReady(connection) {
+      /* Encrypted TLS data is ready to be sent */
       const bytes = connection.tlsData.getBytes();
-      console.log('[TLS] sending data to TLS server: ', bytes);
-      sendDataCallback(bytes, withUser);
+      routerCallback(bytes, peerName);
     },
-    dataReady: function dataReady(connection) {
-      // clear data from the server is ready
+    dataReady(connection) {
       const message = forge.util.decodeUtf8(connection.data.getBytes());
-      console.log('[TLS] the server sent: ', message);
-      onDataReceivedCallback(message);
-      // vm.processDataFromTlsServer(message);
-      // close connection
-      // connection.close();
+      onDataReceived(message);
     },
     closed: function closed() {
       console.log('[TLS] disconnected');
@@ -153,12 +147,6 @@ function tlsCreateConnection(isServer, onDataReceivedCallback, sendDataCallback,
   });
 }
 
-export {
-  tlsCaAuthority,
-  tlsPublicKey,
-  tlsPrivateKey,
-  tlsCert,
-  tlsCertPem,
-  tlsPrivateKeyPem,
-  tlsCreateConnection,
+export default {
+  createConnection,
 };
