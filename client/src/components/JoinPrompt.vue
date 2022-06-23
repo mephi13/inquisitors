@@ -1,16 +1,27 @@
 <template>
-  <div class="container">
-    <h1> Room: {{ roomId }} </h1>
-    <form v-on:submit.prevent="joinRoom(roomId)">
-      <label for="roomId">Room identifier:
-        <input type="text" placeholder="Paste room identifier..." v-model="roomId"
-          id="roomId" />
-      </label>
-      <input type="submit" value="Join" />
+  <div class="container-sm align-middle">
+    <div class="row justify-content-center">
+      <div class="col bg-dark " align="center">
+        <h1> Join room </h1>
+        <h1> {{ roomId }} </h1>
+        <form v-on:submit.prevent="joinRoom(roomId)">
+          <label class="form-label" for="roomId">Room identifier:
+          <input type="text" class="form-control" placeholder="Paste room identifier..."
+              v-model="roomId" id="roomId" />
+          </label>
+          <div class="row justify-content-center">
+            <div class="col bg-dark " align="center">
+            <button type="submit" class="btn btn-secondary btn-lg" >Join</button>
+            </div>
+          </div>
+        </form>
+        <div v-if="errorMsg" class="alert alert-primary" role="alert">
+          <p>{{ errorMsg }}</p>
+        </div>
+      </div>
+    </div>
 
-      <hr />
-      <p v-if="errorMsg">{{ errorMsg }}</p>
-    </form>
+    <hr />
   </div>
 </template>
 

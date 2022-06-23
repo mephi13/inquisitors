@@ -1,74 +1,109 @@
 <template>
-  <div class="container">
-    <h1> Room: {{ roomId }} </h1>
+  <div class="container-sm align-middle">
+    <div class="row justify-content-center" align ="center">
+      <h1 class="text-primary"> Inquisitors </h1>
+      <h6 class="text-info">Room: {{ roomId }}</h6>
 
-    <div v-if="currentState.name === 'initialState'">
-      <!-- TODO: Start game button if host, otherwise "Waiting for the host to start the game -->
-      <button @click="startGame()" class="btn btn-primary btn-lg">Start</button>
-    </div>
-
-    <div v-else-if="currentState.name === 'waitingForQuestion'">
-      <form v-on:submit.prevent="submitQuestion(currentState.questionSubmission)">
-        <label for="userQuestion">Question:
-          <input type="text" placeholder="Submit your question..."
-            v-model="currentState.questionSubmission" id="userQuestion" />
-        </label>
-        <input type="submit" value="Send" />
-      </form>
-    </div>
-
-    <div v-else-if="currentState.name === 'questionSubmitted'">
-      <p>Question submitted!</p>
-    </div>
-
-    <div v-else-if="currentState.name === 'waitingForResponse'">
-      <p>{{ this.currentState.chosenQuestion }}</p>
-      <p>{{ this.currentState.responsePrompt }}</p>
-      <button @click="submitResponse(true)" class="btn btn-primary btn-lg">YES</button>
-      <button @click="submitResponse(false)" class="btn btn-secondary btn-lg">NO</button>
-    </div>
-
-    <div v-else-if="currentState.name === 'anonymousVetoNetwork'">
-      <!-- TODO: Run veto network in the background, show sime progress bar? -->
-      <p>Answer submitted. Waiting for other players...</p>
-    </div>
-
-    <div v-else-if="currentState.name === 'waitingForPublicVote'">
-      <!-- TODO: Prompt for vote -->
-      <div v-if="gameResult == true">
-        <h2>Someone answered yes! Name the heretic!</h2>
-      </div>
-      <div v-else>
-        <h2>No one came forward. Someone must be lying. Name them and let them burn!</h2>
+      <div v-if="errorMsg" class="alert alert-primary" role="alert">
+        <p>{{ errorMsg }}</p>
       </div>
 
-      <div v-for="player in players" :key="player">
-        <div v-if="player.name !== userName" class="container">
-          <button @click="submitVote(player.name)"
-            class="btn btn-primary btn-lg">{{ player.name }}</button>
+      <div v-if="currentState.name === 'initialState'">
+        <!-- TODO: Start game button if host, otherwise "Waiting for the host to start the game -->
+        <div class="row justify-content-center" align = "center">
+        <div class="col bg-dark" align="">
+          <button @click="startGame()" class="btn btn-primary btn-lg">Start game</button>
+        </div>
         </div>
       </div>
+
+      <div v-else-if="currentState.name === 'waitingForQuestion'">
+        <div class="row justify-content-center">
+          <form v-on:submit.prevent="submitQuestion(currentState.questionSubmission)">
+            <div class="col" align="center">
+              <label class="form-label" for="userQuestion">Question:
+                <textarea class="form-control" placeholder="Submit your question..."
+                  v-model="currentState.questionSubmission" id="userQuestion" rows="3"/>
+              </label>
+            </div>
+            <div class="col" align="center">
+              <button type="submit" class="btn btn-primary btn-lg" >Submit</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div v-else-if="currentState.name === 'questionSubmitted'">
+        <div class="row justify-content-center" align="center">
+          <p>Question submitted!</p>
+          <p class="text-primary">Waiting for other players...</p>
+        </div>
+      </div>
+
+      <div v-else-if="currentState.name === 'waitingForResponse'">
+        <div class="row justify-content-center" align="center">
+          <div class="col" align="center">
+            <p>{{ this.currentState.chosenQuestion }}</p>
+            <p>{{ this.currentState.responsePrompt }}</p>
+            <button @click="submitResponse(true)" class="btn btn-primary btn-lg btn-block">
+              YES
+            </button>
+            <button @click="submitResponse(false)" class="btn btn-secondary btn-lg btn-block">
+              NO
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div v-else-if="currentState.name === 'anonymousVetoNetwork'">
+        <div class="row justify-content-center" align="center">
+          <!-- TODO: Run veto network in the background, show sime progress bar? -->
+          <p>Answer submitted. Waiting for other players...</p>
+        </div>
+      </div>
+
+      <div v-else-if="currentState.name === 'waitingForPublicVote'">
+        <!-- TODO: Prompt for vote -->
+        <div v-if="gameResult == true">
+          <h2>Someone answered yes! Name the heretic!</h2>
+        </div>
+        <div v-else>
+          <h2>No one came forward. Someone must be lying. Name them and let them burn!</h2>
+        </div>
+
+        <div v-for="player in players" :key="player">
+          <div v-if="player.name !== userName" class="row justify-content-center" align="center">
+            <button @click="submitVote(player.name)"
+              class="btn btn-primary btn-lg">{{ player.name }}</button>
+          </div>
+        </div>
+      </div>
+
+      <div v-else-if="currentState.name === 'waitingForNextRound'">
+        <div class="row justify-content-center" align="center">
+          <button @click="nextRound" class="btn btn-primary btn-lg">Next Round</button>
+        </div>
+      </div>
+
+      <div v-else>
+        <!-- This should never happen -->
+      </div>
+
     </div>
 
-    <div v-else-if="currentState.name === 'waitingForNextRound'">
-      <button @click="nextRound" class="">Next Round</button>
+    <hr />
+
+    <h3 class="text-primary"> Players: </h3>
+    <div v-for="player in players" :key="player.index" class="container">
+      <div class="container">
+        {{ player.name }}
+      </div>
     </div>
 
-    <div v-else>
-      <!-- This should never happen -->
-    </div>
+    <hr />
 
+    <button @click="copyRoomId" class="btn btn-info outline">Copy room id</button>
   </div>
-
-  <hr />
-
-  <p> Players: </p>
-  <div v-for="player in players" :key="player.index" class="container">
-    <div class="container">
-      {{ player.name }}
-    </div>
-  </div>
-
 </template>
 
 <script>
@@ -88,10 +123,15 @@ export default {
       currentState: {
         name: 'initialState',
       },
+      errorMsg: '',
     };
   },
   props: ['roomId'],
   methods: {
+    copyRoomId() {
+      navigator.clipboard.writeText(this.roomId);
+    },
+
     stateTransition(nextState) {
       console.log(`Transitioning to state ${nextState.name}`);
       this.currentState = nextState;
