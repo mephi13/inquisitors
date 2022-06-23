@@ -31,7 +31,9 @@
                "Ripe",
                "Messy",
                "Electric",
-               "Unhappy" ],
+               "Unhappy",
+               "Blue",
+               "Conscientious"],
     "last": ["Turtle",
              "Wombat",
              "Snake",
@@ -60,5 +62,6 @@
              "Hippopotamus",
              "Dugong",
              "Canary",
-             "Sloth" ]
+             "Sloth",
+             "Unicorn"]
 }

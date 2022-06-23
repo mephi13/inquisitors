@@ -45,7 +45,7 @@
       <div v-for="player in players" :key="player">
         <div v-if="player.name !== userName" class="container">
           <button @click="submitVote(player.name)"
-            class="btn btn-primary btn-lg">{{ player }}</button>
+            class="btn btn-primary btn-lg">{{ player.name }}</button>
         </div>
       </div>
     </div>
@@ -122,7 +122,7 @@ export default {
       });
 
       /* Run anonymous veto network */
-      this.gameResult = avnet.runAnonymousVeto(
+      this.gameResult = await avnet.runAnonymousVeto(
         this.secureNetwork,
         this.currentState.mockAnswer ? false : response,
       );
@@ -145,6 +145,7 @@ export default {
     },
 
     nextRound() {
+      /* TODO: Reset the socket, i.e. remove one-time event listeners */
       this.socket.emit('next_round_ready', {
         roomId: this.roomId,
       });
@@ -209,9 +210,9 @@ export default {
       /* Find prosecutors of each player */
       for (let i = 0; i < this.players.length; i += 1) {
         const prosecutors = data.votes
-          .filter((player) => player.votedFor === this.players[i])
+          .filter((player) => player.votedFor === this.players[i].name)
           .map((player) => player.name);
-        this.publicVotesAgainst[this.players[i]] = prosecutors;
+        this.publicVotesAgainst[this.players[i].name] = prosecutors;
       }
 
       if (data.heretic === this.userName) {

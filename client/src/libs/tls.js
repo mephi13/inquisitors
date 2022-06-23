@@ -85,15 +85,33 @@ function sign(tlsCertPem) {
 tlsCert.sign(tlsPrivateKey)
 sign(forge.pki.certificateToPem(tlsCert))
 
+
+function sendData(connection, data) {
+  /* Serialize the object */
+  const serialized = JSON.stringify(data);
+  /* Encode to bytes */
+  const encoded = forge.util.encodeUtf8(serialized);
+  /* Pass to TLS connection object */
+  connection.prepare(encoded);
+}
+
+function handleDownstreamMessage(connection, data) {
+  /* Base64-decode (string to bytes) */
+  const bytes = atob(data);
+  /* Pass to TLS connection object */
+  connection.process(bytes);
+}
+
 /**
  * @brief Create a connection object
  * @param {boolean} isServer Flag indicating whether we should take the role of the server
+ * @param {Function} onConnected Function called when handshake succeeds
  * @param {Function} onDataReceived Function called when new data is received
  * @param {Function} routerCallback Function called with prepared data ready to be sent
  * @param {str} peerName Name of the peer party, later passed to the routerCallback
  * @returns A TLS connection object
  */
-function createConnection(isServer, onDataReceived, routerCallback, peerName) {
+function createConnection(isServer, onConnected, onDataReceived, routerCallback, peerName) {
   /* Use easily overridable function */
   const debugLog = (message) => { console.log(message); };
 
@@ -107,19 +125,22 @@ function createConnection(isServer, onDataReceived, routerCallback, peerName) {
       forge.tls.CipherSuites.TLS_RSA_WITH_AES_256_CBC_SHA],
     verifyClient: true,
     verify(connection, verified, depth, certs) {
+      debugLog(`Verifying connection with ${peerName}`);
       console.assert(connection, depth, certs);
       /* TODO: Check also common name */
       // return verified && certs[0].subject.getField('CN').value === peerName;
       return verified;
     },
 
-    connected: function connect(connection) {
+    connected(connection) {
       console.assert(connection);
       debugLog(`Established TLS connection with ${peerName}`);
+      onConnected();
     },
 
     getCertificate(connection, hint) {
       console.assert(connection, hint);
+      debugLog(`Fetched certificate in connection with ${peerName}`);
       return tlsCertPem;
     },
 
@@ -129,24 +150,32 @@ function createConnection(isServer, onDataReceived, routerCallback, peerName) {
       return tlsPrivateKeyPem;
     },
     tlsDataReady(connection) {
-      /* Encrypted TLS data is ready to be sent */
-      const bytes = connection.tlsData.getBytes();
+      /* Base64-encode encrypted data */
+      const bytes = btoa(connection.tlsData.getBytes());
+      debugLog(`Routing message to ${peerName}`);
+      /* Route the encrypted message */
       routerCallback(bytes, peerName);
     },
     dataReady(connection) {
-      const message = forge.util.decodeUtf8(connection.data.getBytes());
-      onDataReceived(message);
+      const stringified = forge.util.decodeUtf8(connection.data.getBytes());
+      const json = JSON.parse(stringified);
+
+      debugLog(`Received data from ${peerName}`);
+      onDataReceived(json);
     },
-    closed: function closed() {
-      console.log('[TLS] disconnected');
+    closed() {
+      debugLog(`Closed TLS connection with ${peerName}`);
     },
     error: function errorTLS(connection, error) {
       console.assert(connection);
-      console.log('[TLS] error: ', error);
+      debugLog(`TLS error in session with ${peerName}`);
+      debugLog(error);
     },
   });
 }
 
 export default {
   createConnection,
+  sendData,
+  handleDownstreamMessage,
 };

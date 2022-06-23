@@ -79,8 +79,40 @@ function getRandomCommitmentAndProof() {
 
   return {
     secret: pair.getPrivate(),
-    commitment: pair.getPublic(),
-    proof: getZeroKnowledgeProof(pair.getPrivate()),
+    publicValues: {
+      commitment: pair.getPublic(),
+      proof: getZeroKnowledgeProof(pair.getPrivate()),
+    },
+  };
+}
+
+/**
+ * @brief Convert commitment object to plain JSON
+ * @param {Object} commitmentObject Typed commitment object
+ * @return JSON
+ */
+function commitmentToJson(commitmentObject) {
+  return {
+    commitment: commitmentObject.commitment.encode(),
+    proof: {
+      commitment: commitmentObject.proof.commitment.encode(),
+      response: commitmentObject.proof.response.toString(),
+    },
+  };
+}
+
+/**
+ * @brief Recover commitment object form plain JSON
+ * @param {Object} jsonObject JSON object
+ * @return Typed commitment object
+ */
+function commitmentFromJson(jsonObject) {
+  return {
+    commitment: ec.keyFromPublic(jsonObject.commitment, 'hex').getPublic(),
+    proof: {
+      commitment: ec.keyFromPublic(jsonObject.proof.commitment, 'hex').getPublic(),
+      response: new BN(jsonObject.proof.response),
+    },
   };
 }
 
@@ -96,4 +128,7 @@ export default {
   getZeroKnowledgeProof,
   getRandomCommitmentAndProof,
   verifyZeroKnowledgeProof,
+  commitmentFromJson,
+  commitmentToJson,
+  ec,
 };

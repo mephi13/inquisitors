@@ -2,11 +2,7 @@
 
 import avnet from '@/libs/avnet-core';
 import tls from '@/libs/tls';
-
-const messageHandlers = {
-  /* TODO: Implement handlers for specific types of peer-to-peer messages */
-};
-console.assert(messageHandlers);
+import zkp from '@/libs/zkp';
 
 /**
  * @brief Determine whether or not we should act as a server when communicating with peer
@@ -29,9 +25,6 @@ function establishSecureNetwork(params) {
   const peers = params.players.filter((player) => player.name !== params.ownName);
   /* Find self */
   const me = params.players.find((player) => player.name === params.ownName);
-
-  const onDataReceived = () => {};
-
   const router = (payload, receiver) => {
     /* Send the data to the socket */
     params.socket.emit('route_tls', {
@@ -41,10 +34,52 @@ function establishSecureNetwork(params) {
     });
   };
 
-  const connections = peers.map((peer) => ({
-    peer,
-    connection: tls.createConnection(amServer(me, peer), onDataReceived, router, peer),
-  }));
+  const connections = peers.map((peer) => {
+    let onEphemeralCommitment;
+    let onSecretShare;
+    let onConnected;
+    const onDataReceived = (data) => {
+      switch (data.messageType) {
+        case 'ephemeralCommitment':
+          onEphemeralCommitment(data.messagePayload);
+          break;
+        case 'secretShare':
+          onSecretShare(data.messagePayload);
+          break;
+        default:
+          console.error(`Received invalid data from peer ${peer}: ${data.messageType}`);
+          break;
+      }
+    };
+    const promiseOnEphemeralCommitment = new Promise((resolve) => {
+      onEphemeralCommitment = resolve;
+    });
+    const promiseOnSecretShare = new Promise((resolve) => {
+      onSecretShare = resolve;
+    });
+    const promiseOnConnected = new Promise((resolve) => {
+      onConnected = resolve;
+    });
+
+    return {
+      peer,
+      connection: tls.createConnection(
+        amServer(me, peer),
+        onConnected,
+        onDataReceived,
+        router,
+        peer.name,
+      ),
+      promiseOnConnected,
+      promiseOnEphemeralCommitment,
+      promiseOnSecretShare,
+    };
+  });
+
+  params.socket.on('tls_message', (data) => {
+    const conn = connections.find((connection) => connection.peer.name === data.sender);
+    tls.handleDownstreamMessage(conn.connection, data.payload);
+  });
 
   return {
     socket: params.socket,
@@ -59,68 +94,90 @@ function establishSecureNetwork(params) {
  * @param {boolean} veto Own input to the protocol
  * @return Game result or -1 on failure
  */
-function runAnonymousVeto(network, veto) {
-  const peers = network.connections.map((connection) => connection.peer);
-  const commitments = [
-    { sender: null, commitment: null },
-  ];
-  const secretShares = [
-    { proof: null, commitment: null, basePoint: null },
-  ];
+async function runAnonymousVeto(network, veto) {
+  const players = network.connections.map((connection) => connection.peer);
+  players.push(network.self);
 
+  /* Wrap in a promise */
   /* Run a handshake with each peer */
   network.connections.map((connection) => {
     if (!amServer(network.self, connection.peer)) {
+      console.log(`Running handshake with ${connection.peer.name}...`);
       connection.connection.handshake();
     }
     return null;
   });
+  console.log('Waiting for handshakes to complete...');
+  /* Wait for handshakes to complete */
+  await Promise.all(network.connections.map((connection) => connection.promiseOnConnected));
+  console.log('Handshakes done');
 
   /* Generate commitment */
   const ephemeral = avnet.getEphemeralCommitmentWithProof();
 
+  console.log('Sending out ephemeral commitment...');
   /* Send out the commitment to all peers */
   network.connections.map((connection) => {
-    /* TODO: Implement me! */
-    console.assert(connection);
-    return null;
+    const payload = {
+      messageType: 'ephemeralCommitment',
+      messagePayload: {
+        sender: network.self.name,
+        commitment: zkp.commitmentToJson(ephemeral.publicValues),
+      },
+    };
+    return tls.sendData(connection.connection, payload);
   });
 
-  /* Await commitments from peers */
-  /* TODO: AWAIT */
+  console.log('Waiting for commitments of other parties...');
+  /* Wait for commitments from peers */
+  const commitmentsInJson = await Promise.all(
+    network.connections.map((connection) => connection.promiseOnEphemeralCommitment),
+  );
+  const commitments = commitmentsInJson.map((commitment) => ({
+    sender: commitment.sender, commitment: zkp.commitmentFromJson(commitment.commitment),
+  }));
 
   /* Add own commitment to the list */
   commitments.push({
     sender: network.self.name,
-    commitment: ephemeral,
+    commitment: ephemeral.publicValues,
   });
+
+  console.log('All commitments received');
 
   /* Sort the elements */
   commitments.sort((commit1, commit2) => {
     /* Map sender name to index in players' list */
-    const index1 = peers.find((peer) => peer.name === commit1.sender).index;
-    const index2 = peers.find((peer) => peer.name === commit2.sender).index;
-    return index1 < index2;
+    const index1 = players.find((peer) => peer.name === commit1.sender).index;
+    const index2 = players.find((peer) => peer.name === commit2.sender).index;
+    return index2 - index1;
   });
 
   /* Find own index into the array */
   const ownIndex = commitments.findIndex((commitment) => commitment.sender === network.self.name);
 
+  console.log('Obtaining the intermediate secret share...');
+  /* Strip the sender data */
+  const strippedCommitments = commitments.map((commitment) => commitment.commitment);
   /* Obtain the intermediate share */
-  const intermediateShare = avnet.getSecretShareIfProofsValid(commitments, ownIndex);
+  const intermediateShare = avnet.getSecretShareIfProofsValid(strippedCommitments, ownIndex);
   /* TODO: Add error handling if any of the proofs is invalid */
   console.assert(intermediateShare);
   const secretShare = avnet.commitToVeto(veto, ephemeral.secret, intermediateShare);
 
+  console.log('Sending out our secret share...');
   /* Send out own secret share */
   network.connections.map((connection) => {
-    /* TODO: Implement me! */
-    console.assert(connection);
-    return null;
+    const payload = { messageType: 'secretShare', messagePayload: avnet.vetoToJson(secretShare) };
+    return tls.sendData(connection.connection, payload);
   });
 
+  console.log('Waiting for the secret shares of other parties...');
   /* Wait for peers' secret shares */
-  /* TODO: AWAIT */
+  const secretSharesInJson = await Promise.all(
+    network.connections.map((connection) => connection.promiseOnSecretShare),
+  );
+  const secretShares = secretSharesInJson.map((share) => avnet.vetoFromJson(share));
 
   /* Add own secret share to the list */
   secretShares.push(secretShare);
