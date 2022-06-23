@@ -5,10 +5,11 @@ from flask import request
 class Player:
     """Define a player state."""
 
-    def __init__(self, id: str, name: str) -> None:
+    def __init__(self, id: str, name: str, index: int) -> None:
         """Instantiate a player."""
         self.id = id
         self.name = name
+        self.index = index
         self.question = ""
         # Votes cast against the player
         self.votes_against = 0

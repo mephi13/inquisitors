@@ -44,14 +44,6 @@ def on_room_join(data: Dict[str, str]) -> None:
         # Notify all players in the room about the newcomer
         room.on_update()
 
-        # for PoC, tell Alice she's 
-        # the server
-        if user_name == "Alice":
-            log.debug("Alice detected, sending message...")
-            emit("tls_function", {
-                "isServer": True,
-            }, to=user_id)
-
         log.info(
             f"User {user_id} ({user_name}) joined room {room_id}"
         )
@@ -129,8 +121,8 @@ def on_next_round_ready(data: Dict[str, str]) -> None:
         log.error(f"Error in on_next_round_ready: {type(e).__name__}: {e}")
         disconnect()
 
-@socketio.on("send_tls_message")
-def send_tls_message(data: Dict[str, str]) -> None:
+@socketio.on("route_tls")
+def on_route_tls(data: Dict[str, str]) -> None:
     """Route client-client TLS message."""
     try:
         sender_id = get_user_id()
@@ -148,5 +140,5 @@ def send_tls_message(data: Dict[str, str]) -> None:
             "payload": payload,
         }, to=receiver_id)
     except KeyError as e:
-        log.error(f"Error in send_tls_message: {type(e).__name__}: {e}")
+        log.error(f"Error in on_route_tls: {type(e).__name__}: {e}")
         disconnect()
