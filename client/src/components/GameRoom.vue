@@ -41,7 +41,7 @@
       </div>
 
       <div v-else-if="currentState.name === 'waitingForResponse'">
-        <div class="row justify-content-center">
+        <div class="row justify-content-center" align="center">
           <div class="col" align="center">
             <p>{{ this.currentState.chosenQuestion }}</p>
             <p>{{ this.currentState.responsePrompt }}</p>
@@ -56,8 +56,10 @@
       </div>
 
       <div v-else-if="currentState.name === 'anonymousVetoNetwork'">
-        <!-- TODO: Run veto network in the background, show sime progress bar? -->
-        <p>Answer submitted. Waiting for other players...</p>
+        <div class="row justify-content-center" align="center">
+          <!-- TODO: Run veto network in the background, show sime progress bar? -->
+          <p>Answer submitted. Waiting for other players...</p>
+        </div>
       </div>
 
       <div v-else-if="currentState.name === 'waitingForPublicVote'">
@@ -78,7 +80,9 @@
       </div>
 
       <div v-else-if="currentState.name === 'waitingForNextRound'">
-        <button @click="nextRound" class="btn btn-primary btn-lg">Next Round</button>
+        <div class="row justify-content-center" align="center">
+          <button @click="nextRound" class="btn btn-primary btn-lg">Next Round</button>
+        </div>
       </div>
 
       <div v-else>
